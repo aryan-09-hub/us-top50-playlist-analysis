@@ -1,0 +1,25 @@
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+secrets.toml
+
+# Dataset files can be large or sensitive; keep the directory placeholders tracked.
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Generated local outputs
+*.log
+*.db
+*.sqlite
