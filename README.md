@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # United States Top 50 Playlist Performance and Song Popularity Trend Analysis
 
 An interactive Streamlit project for analyzing song rankings, chart longevity, artist appearances, and supplied popularity scores in the United States Top 50 playlist dataset.
@@ -91,3 +92,6 @@ For Streamlit Community Cloud, push the project to GitHub, open your Community C
 The app also needs the CSV at runtime. Raw and processed data are excluded from Git, so the cloud app will not find the local CSV until you provide it through a deployment method you are allowed to use. Only add the dataset to a repository if you have permission to distribute it there. The local `PLAYLIST_DATA_PATH` setting does not upload or mount a file in the cloud environment.
 
 Keep analysis code in `src/`, exploration in `notebooks/`, generated data in `data/processed/`, and written findings in `reports/`. Do not commit private or large source datasets unless the repository explicitly requires them.
+=======
+# us-top50-playlist-analysis
+>>>>>>> 408d633db44730a25be21a3a79e37a38d53c4157
