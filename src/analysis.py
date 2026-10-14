@@ -14,37 +14,47 @@ def _require(data: pd.DataFrame, columns: set[str]) -> None:
 
 
 def song_kpis(data: pd.DataFrame) -> pd.DataFrame:
-    """Calculate observed chart days, average/best rank, and rank volatility.
+    """Calculate track-level rank and, when available, popularity summaries.
 
-    Track identity combines artist and title. Volatility is the population
+    Track identity combines artist and title. Volatility uses sample standard deviation
     standard deviation of observed ranks; lower values indicate steadier ranks.
     """
     _require(data, {"date", "song", "artist", "position"})
     if data.empty:
         return pd.DataFrame(columns=["song", "artist", "days_on_chart", "average_rank", "best_rank", "rank_volatility"])
-    result = (
-        data.groupby(["song", "artist"], dropna=False)
-        .agg(
-            days_on_chart=("date", "nunique"),
-            average_rank=("position", "mean"),
-            best_rank=("position", "min"),
-            rank_volatility=("position", "std"),
-        )
-        .reset_index()
-    )
+    aggregations = {
+        "days_on_chart": ("date", "nunique"),
+        "average_rank": ("position", "mean"),
+        "best_rank": ("position", "min"),
+        "rank_volatility": ("position", "std"),
+    }
+    if "popularity" in data:
+        aggregations["average_popularity"] = ("popularity", "mean")
+        aggregations["popularity_volatility"] = ("popularity", "std")
+    if "duration_minutes" in data:
+        aggregations["average_duration_minutes"] = ("duration_minutes", "mean")
+    result = data.groupby(["song", "artist"], dropna=False).agg(**aggregations).reset_index()
     result["rank_volatility"] = result["rank_volatility"].fillna(0.0)
+    if "popularity_volatility" in result:
+        result["popularity_volatility"] = result["popularity_volatility"].fillna(0.0)
     return result.sort_values(["days_on_chart", "best_rank"], ascending=[False, True]).reset_index(drop=True)
 
 
 def artist_leaderboard(data: pd.DataFrame) -> pd.DataFrame:
     """Summarize artist chart appearances and average rank."""
     _require(data, {"artist", "position"})
-    return (
-        data.groupby("artist", dropna=False)
-        .agg(chart_appearances=("position", "size"), average_rank=("position", "mean"), best_rank=("position", "min"))
-        .sort_values(["chart_appearances", "best_rank"], ascending=[False, True])
-        .reset_index()
-    )
+    aggregations = {
+        "chart_appearances": ("position", "size"),
+        "average_rank": ("position", "mean"),
+        "best_rank": ("position", "min"),
+    }
+    if "song" in data:
+        aggregations["unique_songs"] = ("song", "nunique")
+    if "date" in data:
+        aggregations["days_present"] = ("date", "nunique")
+    return data.groupby("artist", dropna=False).agg(**aggregations).sort_values(
+        ["chart_appearances", "best_rank"], ascending=[False, True]
+    ).reset_index()
 
 
 def popularity_rank_summary(data: pd.DataFrame) -> dict[str, float | int | None]:
@@ -72,22 +82,94 @@ def category_summary(data: pd.DataFrame, category: str, value: str = "position")
 
 
 def daily_summary(data: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate chart-level activity and popularity by observed date."""
+    """Aggregate chart-level activity and a trailing 7-snapshot popularity mean."""
     _require(data, {"date", "position"})
     aggregations = {"chart_entries": ("position", "size"), "average_rank": ("position", "mean")}
     if "popularity" in data.columns:
         aggregations["average_popularity"] = ("popularity", "mean")
     if "song" in data.columns:
         aggregations["unique_songs"] = ("song", "nunique")
-    return data.groupby("date").agg(**aggregations).reset_index().sort_values("date")
+    summary = data.groupby("date").agg(**aggregations).reset_index().sort_values("date")
+    if "average_popularity" in summary:
+        summary["popularity_trend_score"] = summary["average_popularity"].rolling(7, min_periods=1).mean()
+    return summary
 
 
-def rank_movement(data: pd.DataFrame) -> pd.DataFrame:
-    """Calculate rank change between consecutive observations per track."""
+def rank_movement(data: pd.DataFrame, max_gap_days: int = 1) -> pd.DataFrame:
+    """Calculate daily rank changes, leaving gaps across missing dates undefined.
+
+    Negative rank change means a rise (movement toward rank 1); positive means
+    a decline. A movement requires consecutive calendar dates by default.
+    """
     _require(data, {"date", "song", "artist", "position"})
     result = data.sort_values("date").copy()
-    result["rank_change"] = result.groupby(["song", "artist"])["position"].diff()
+    track = result.groupby(["song", "artist"], dropna=False)
+    previous_rank = track["position"].shift()
+    previous_date = track["date"].shift()
+    elapsed_days = (result["date"] - previous_date).dt.days
+    result["rank_change"] = (result["position"] - previous_rank).where(elapsed_days <= max_gap_days)
+    result["days_since_previous"] = elapsed_days
     return result
+
+
+def daily_rank_distribution(data: pd.DataFrame) -> pd.DataFrame:
+    """Count filtered chart rows in five rank bands for each observed date."""
+    _require(data, {"date", "position"})
+    labels = ["1–10", "11–20", "21–30", "31–40", "41–50"]
+    work = data[["date", "position"]].copy()
+    work["rank_band"] = pd.cut(work["position"], bins=[0, 10, 20, 30, 40, 50], labels=labels)
+    result = work.groupby(["date", "rank_band"], observed=False).size().rename("observations").reset_index()
+    return result.sort_values(["date", "rank_band"]).reset_index(drop=True)
+
+
+def daily_chart_transitions(data: pd.DataFrame, max_gap_days: int = 1) -> pd.DataFrame:
+    """Count new and missing song-artist keys between adjacent snapshots only."""
+    _require(data, {"date", "song", "artist"})
+    daily = {
+        day: set(group[["song", "artist"]].itertuples(index=False, name=None))
+        for day, group in data.groupby("date")
+    }
+    dates = sorted(daily)
+    rows = []
+    for previous_day, current_day in zip(dates, dates[1:]):
+        elapsed = (current_day - previous_day).days
+        if elapsed > max_gap_days:
+            continue
+        previous, current = daily[previous_day], daily[current_day]
+        rows.append({
+            "date": current_day,
+            "entries": len(current - previous),
+            "exits": len(previous - current),
+            "days_between_snapshots": elapsed,
+        })
+    return pd.DataFrame(rows, columns=["date", "entries", "exits", "days_between_snapshots"])
+
+
+def popularity_by_rank_cohort(data: pd.DataFrame) -> pd.DataFrame:
+    """Summarize source popularity across cumulative Top 10, Top 20 and Top 50."""
+    _require(data, {"position", "popularity"})
+    cohorts = [("Top 10", 10), ("Top 20", 20), ("Top 50", 50)]
+    rows = []
+    for label, ceiling in cohorts:
+        values = pd.to_numeric(data.loc[data["position"].between(1, ceiling), "popularity"], errors="coerce").dropna()
+        rows.append({
+            "cohort": label,
+            "observations": int(values.size),
+            "mean_popularity": float(values.mean()) if not values.empty else float("nan"),
+            "median_popularity": float(values.median()) if not values.empty else float("nan"),
+        })
+    return pd.DataFrame(rows)
+
+
+def popularity_stability_summary(data: pd.DataFrame) -> tuple[pd.DataFrame, float | None]:
+    """Relate per-track popularity spread to rank volatility descriptively."""
+    _require(data, {"date", "song", "artist", "position", "popularity"})
+    tracks = song_kpis(data)
+    if "popularity_volatility" not in tracks or len(tracks) < 2:
+        return tracks, None
+    usable = tracks[["popularity_volatility", "rank_volatility"]].dropna()
+    corr = usable["popularity_volatility"].corr(usable["rank_volatility"]) if len(usable) >= 2 else None
+    return tracks, float(corr) if pd.notna(corr) else None
 
 
 def filter_chart_data(

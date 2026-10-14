@@ -17,8 +17,14 @@ from src import analysis, data_cleaning
 analysis = importlib.reload(analysis)
 data_cleaning = importlib.reload(data_cleaning)
 artist_leaderboard = analysis.artist_leaderboard
+daily_chart_transitions = analysis.daily_chart_transitions
+daily_rank_distribution = analysis.daily_rank_distribution
+daily_summary = analysis.daily_summary
 filter_chart_data = analysis.filter_chart_data
+popularity_by_rank_cohort = analysis.popularity_by_rank_cohort
 popularity_rank_summary = analysis.popularity_rank_summary
+popularity_stability_summary = analysis.popularity_stability_summary
+rank_movement = analysis.rank_movement
 song_kpis = analysis.song_kpis
 DEFAULT_DATA_PATH = data_cleaning.DEFAULT_DATA_PATH
 analysis_ready_data = data_cleaning.analysis_ready_data
@@ -62,6 +68,10 @@ st.markdown(
       [data-testid="stWidgetLabel"] p, .stApp label { color:#B9CACB !important; }
       [data-testid="stCaptionContainer"] { color:#94A3B8; }
       [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color:#B9CACB; }
+      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label { padding:8px 10px; margin:2px 0; border:1px solid transparent; border-radius:6px; transition:background .15s ease,border-color .15s ease; }
+      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:hover { background:#181C24; border-color:#252B38; }
+      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) { background:#1D2026; border-color:#2E3646; }
+      [data-testid="stSidebar"] input[type="radio"] { accent-color:#00DCE6; }
       [data-testid="stSidebar"] hr { border-color:#252B38; }
       [data-testid="stSegmentedControl"] { background:#12151B; border:1px solid #252B38; border-radius:6px; padding:4px; }
       [data-testid="stSegmentedControl"] button { color:#B9CACB; border-radius:4px; }
@@ -184,12 +194,27 @@ if data.empty:
     st.error("No complete chart dates are available for analysis. Review the source data and data quality report.")
     st.stop()
 
-# Sidebar: compact, persistent controls shared across all analytical views.
+# Sidebar: persistent navigation followed by shared global filters.
 with st.sidebar:
-    st.markdown("### ♫  PLAYLIST INTELLIGENCE")
-    st.caption("UNITED STATES  /  TOP 50 ARCHIVE")
+    st.markdown("### ♫  TOP 50 ANALYTICS")
+    st.caption("UNITED STATES · HISTORICAL PLAYLIST INTELLIGENCE")
     st.divider()
-    st.markdown("**FILTER THE CHART**")
+    st.markdown("**NAVIGATION**")
+    selected_page = st.radio(
+        "Application sections",
+        [
+            "Overview dashboard",
+            "Playlist trends",
+            "Song explorer",
+            "Artist analytics",
+            "Popularity analysis",
+            "Content attributes",
+            "Data quality & methodology",
+        ],
+        label_visibility="collapsed",
+    )
+    st.divider()
+    st.markdown("**GLOBAL FILTERS**")
     min_day, max_day = data["date"].min().date(), data["date"].max().date()
     chosen_dates = st.date_input(
         "Chart date range", value=(min_day, max_day), min_value=min_day, max_value=max_day
@@ -215,7 +240,7 @@ with st.sidebar:
     st.divider()
     st.caption(f"SOURCE  /  {data_path.name}")
     st.caption(f"{data['date'].nunique():,} valid snapshots · {len(data):,} rows")
-    st.markdown('<div class="small-note">One anomalous snapshot is excluded from rank analysis. See Data quality.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="small-note">One anomalous snapshot is excluded from rank analysis. See Data quality & methodology.</div>', unsafe_allow_html=True)
 
 filtered = filter_chart_data(
     data,
@@ -227,31 +252,28 @@ filtered = filter_chart_data(
     album_types=selected_albums,
 )
 
-# Main hierarchy: one title, scope, then a small set of shared view tabs.
+view = {
+    "Overview dashboard": "Overview",
+    "Playlist trends": "Trends",
+    "Song explorer": "Songs",
+    "Artist analytics": "Artists",
+    "Popularity analysis": "Popularity",
+    "Content attributes": "Attributes",
+    "Data quality & methodology": "Data quality",
+}[selected_page]
+
+# Main analysis area: current section, reporting window, then the selected charts.
 st.markdown(
     f"""
     <div class="hero">
-      <div class="hero-eyebrow">Playlist intelligence / source-backed analysis</div>
-      <h1>United States Top 50</h1>
-      <p>Track chart movement, observed longevity, artist presence, and recorded popularity.</p>
+      <div class="hero-eyebrow">TOP 50 ANALYTICS · HISTORICAL PLAYLIST INTELLIGENCE</div>
+      <h1>{selected_page}</h1>
+      <p>United States · Historical playlist intelligence</p>
       <div class="hero-meta">DATA WINDOW  {start_day.strftime('%b %d, %Y')} — {end_day.strftime('%b %d, %Y')} &nbsp; / &nbsp; {len(filtered):,} OBSERVATIONS IN VIEW</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-view_label = st.segmented_control(
-    "Dashboard section",
-    ["Overview & Volatility", "Song Longevity", "Artist Dominance", "Attribute Lab", "Data Quality"],
-    default="Overview & Volatility",
-    label_visibility="collapsed",
-) or "Overview & Volatility"
-view = {
-    "Overview & Volatility": "Overview",
-    "Song Longevity": "Songs",
-    "Artist Dominance": "Artists",
-    "Attribute Lab": "Compare",
-    "Data Quality": "Data quality",
-}[view_label]
 
 if filtered.empty and view != "Data quality":
     empty_state("No chart observations match these filters. Broaden the date range, rank range, or selected songs and artists.")
@@ -301,6 +323,23 @@ if view == "Overview":
                       color_discrete_sequence=[GOLD])
         fig.update_yaxes(range=[0, 100])
         chart(fig, 330)
+        trend = daily_summary(filtered)
+        if "popularity_trend_score" in trend:
+            section("Seven-snapshot popularity trend", "Trailing average across up to seven observed snapshots; descriptive smoothing, not a forecast.")
+            fig = px.line(trend, x="date", y="popularity_trend_score", labels={"date": "Date", "popularity_trend_score": "Trailing mean popularity"}, color_discrete_sequence=[TEAL])
+            fig.update_yaxes(range=[0, 100])
+            chart(fig, 300)
+        section("Popularity by rank cohort", "Top 10 and Top 20 are cumulative cohorts; Top 50 is the full selected chart population.")
+        cohort = popularity_by_rank_cohort(filtered)
+        st.dataframe(cohort.rename(columns={"cohort": "Rank cohort", "observations": "Observations", "mean_popularity": "Mean popularity", "median_popularity": "Median popularity"}), hide_index=True, width="stretch", column_config={"Mean popularity": st.column_config.NumberColumn(format="%.1f"), "Median popularity": st.column_config.NumberColumn(format="%.1f")})
+        tracks, stability_corr = popularity_stability_summary(filtered)
+        section("Popularity stability vs. rank volatility", "Each point is a song–artist pair. Both volatility measures are sample standard deviations across observed dates.")
+        if stability_corr is None or tracks.empty:
+            empty_state("At least two tracks with repeated popularity and rank observations are needed for this comparison.")
+        else:
+            st.caption(f"Track-level correlation: {stability_corr:.2f}. Descriptive association only.")
+            fig = px.scatter(tracks, x="popularity_volatility", y="rank_volatility", color="average_popularity" if "average_popularity" in tracks else None, color_continuous_scale=[TEAL, GOLD, CORAL], hover_data=["song", "artist", "days_on_chart"], labels={"popularity_volatility": "Popularity volatility", "rank_volatility": "Rank volatility", "average_popularity": "Mean popularity"})
+            chart(fig, 380)
     else:
         empty_state("Popularity is not available in this dataset.")
 
@@ -315,8 +354,79 @@ if view == "Overview":
         "Rank volatility": st.column_config.NumberColumn(format="%.1f"),
     })
 
+elif view == "Trends":
+    section("Daily chart signals", "Daily chart position, popularity, and observation volume within the selected filters.", "Chart history")
+    daily = daily_summary(filtered).rename(columns={"chart_entries": "chart_observations"})
+    t1, t2 = st.columns(2)
+    with t1:
+        section("Average chart position", "Lower values indicate stronger chart placement; this is the mean of selected observations per date.")
+        fig = px.line(daily, x="date", y="average_rank", markers=False,
+                      labels={"date": "Date", "average_rank": "Mean chart position"},
+                      color_discrete_sequence=[TEAL])
+        fig.update_yaxes(range=[50.5, 1], tickmode="array", tickvals=[1, 10, 20, 30, 40, 50])
+        chart(fig, 380)
+    with t2:
+        section("Observations in view", "Counts the rows remaining after the sidebar filters; it is not playlist size unless all filters are cleared.")
+        fig = px.area(daily, x="date", y="chart_observations",
+                      labels={"date": "Date", "chart_observations": "Selected chart rows"},
+                      color_discrete_sequence=[CORAL])
+        fig.update_traces(fillcolor="rgba(255,42,133,.14)", line_color=CORAL)
+        chart(fig, 380)
+    if "average_popularity" in daily:
+        section("Popularity signal by date", "The score line is a trailing mean over the latest seven observed snapshots, not a forecast.")
+        fig = px.line(daily, x="date", y=["average_popularity", "popularity_trend_score"], markers=False,
+                      labels={"date": "Date", "value": "Popularity (0–100)", "variable": "Measure"},
+                      color_discrete_map={"average_popularity": GOLD, "popularity_trend_score": TEAL})
+        fig.update_yaxes(range=[0, 100])
+        chart(fig, 330)
+    section("Daily rank distribution", "Counts selected observations in five rank bands. With all 50 tracks selected, each band contains 10 tracks per valid snapshot.")
+    band_order = ["1–10", "11–20", "21–30", "31–40", "41–50"]
+    distribution = daily_rank_distribution(filtered)
+    fig = px.area(distribution, x="date", y="observations", color="rank_band",
+                  category_orders={"rank_band": band_order}, color_discrete_sequence=[GOLD, TEAL, "#10B981", "#7C3AED", CORAL],
+                  labels={"date": "Date", "observations": "Selected tracks", "rank_band": "Rank band"})
+    chart(fig, 350)
+    transitions = daily_chart_transitions(filtered)
+    section("Observed entries and exits", "Compares adjacent valid calendar-day snapshots only. Gaps and malformed snapshots are skipped, so this does not infer exits during missing dates.")
+    if transitions.empty:
+        empty_state("No adjacent valid snapshots are available for entry/exit comparisons in this date selection.")
+    else:
+        transition_long = transitions.melt(id_vars="date", value_vars=["entries", "exits"], var_name="transition", value_name="tracks")
+        fig = px.bar(transition_long, x="date", y="tracks", color="transition", barmode="group",
+                     color_discrete_map={"entries": TEAL, "exits": CORAL},
+                     labels={"date": "Snapshot date", "tracks": "Track count", "transition": "Observed transition"})
+        chart(fig, 350)
+    movement = rank_movement(filtered)
+    latest_date = filtered["date"].max()
+    latest_moves = movement.loc[movement["date"].eq(latest_date) & movement["rank_change"].notna()].copy()
+    latest_moves["track"] = latest_moves["song"] + " · " + latest_moves["artist"]
+    risers = latest_moves[latest_moves["rank_change"] <= -10].nsmallest(10, "rank_change")
+    decliners = latest_moves[latest_moves["rank_change"] >= 10].nlargest(10, "rank_change")
+    move_left, move_right = st.columns(2)
+    with move_left:
+        section("Fast risers", "Tracks improving by at least 10 rank places versus the previous consecutive date.")
+        st.dataframe(risers[["track", "position", "rank_change"]].rename(columns={"track": "Song · artist", "position": "Current rank", "rank_change": "Rank change"}), hide_index=True, width="stretch")
+        if risers.empty:
+            st.caption("No tracks meet the 10-place rise threshold on the latest comparable date.")
+    with move_right:
+        section("Slow decliners", "Tracks falling by at least 10 rank places versus the previous consecutive date.")
+        st.dataframe(decliners[["track", "position", "rank_change"]].rename(columns={"track": "Song · artist", "position": "Current rank", "rank_change": "Rank change"}), hide_index=True, width="stretch")
+        if decliners.empty:
+            st.caption("No tracks meet the 10-place decline threshold on the latest comparable date.")
+    section("Song rank trajectories", "The most frequently observed selected songs across the chosen date window.")
+    trend_kpis = song_kpis(filtered)
+    trend_keys = list(trend_kpis.head(8)[["song", "artist"]].itertuples(index=False, name=None))
+    trend_lines = filtered[["date", "position", "song", "artist"]].copy()
+    trend_lines = trend_lines[[tuple(x) in set(trend_keys) for x in trend_lines[["song", "artist"]].itertuples(index=False, name=None)]]
+    if not trend_lines.empty:
+        trend_lines["track"] = trend_lines["song"] + " · " + trend_lines["artist"]
+        fig = px.line(trend_lines, x="date", y="position", color="track", color_discrete_sequence=PALETTE,
+                      labels={"date": "Date", "position": "Chart position", "track": "Song"})
+        rank_axis(fig)
+        chart(fig, 430)
+
 elif view == "Songs":
-    section("Song explorer", "Inspect a track’s rank history and lifetime summary in the selected date window.", "Track detail")
+    section("Selected track", "Inspect a track’s rank history and observed-duration summary in the selected date window.", "Track detail")
     track_table = filtered[["song", "artist"]].drop_duplicates().sort_values(["song", "artist"])
     track_keys = list(track_table.itertuples(index=False, name=None))
     chosen_track = st.selectbox("Choose a track", track_keys, format_func=lambda x: f"{x[0]} · {x[1]}")
@@ -333,9 +443,32 @@ elif view == "Songs":
     chart(fig, 430)
     detail_cols = [c for c in ["date", "position", "popularity", "album_type", "duration_ms", "total_tracks", "is_explicit"] if c in track_data]
     st.dataframe(track_data[detail_cols].sort_values("date", ascending=False), hide_index=True, width="stretch")
+    st.write("")
+    section("Track-level performance comparisons", "Each point represents one song–artist pair in the current filter window.", "Longevity & popularity")
+    track_summary = song_kpis(filtered)
+    left, right = st.columns([1.2, 1])
+    with left:
+        scatter_color = "average_popularity" if "average_popularity" in track_summary else None
+        fig = px.scatter(track_summary, x="days_on_chart", y="best_rank", color=scatter_color,
+                         color_continuous_scale=[TEAL, GOLD, CORAL], opacity=.78,
+                         hover_data=["song", "artist", "average_rank"],
+                         labels={"days_on_chart": "Observed days on chart", "best_rank": "Best rank",
+                                 "average_popularity": "Mean popularity"})
+        rank_axis(fig)
+        chart(fig, 400)
+        st.caption("Peak rank versus observed longevity. A track's observed days may span gaps in source coverage.")
+    with right:
+        if "average_popularity" in track_summary:
+            section("Highest mean popularity", "Average source score per song–artist pair in the current window.")
+            popular_tracks = track_summary.nlargest(12, "average_popularity")[["song", "artist", "average_popularity", "days_on_chart"]]
+            st.dataframe(popular_tracks.rename(columns={"song": "Song", "artist": "Artist", "average_popularity": "Mean popularity", "days_on_chart": "Observed days"}),
+                         hide_index=True, width="stretch",
+                         column_config={"Mean popularity": st.column_config.NumberColumn(format="%.1f")})
+        else:
+            empty_state("Popularity is unavailable; the track popularity leaderboard is skipped.")
 
 elif view == "Artists":
-    section("Artist leaderboard", "Artist credits are counted as supplied in the source; multi-artist credits are not split into individual contributors.", "Artist detail")
+    section("Artist leaderboard", "Includes chart-row appearances, distinct credited songs, and distinct observed dates. Multi-artist credits remain as supplied.", "Artist detail")
     leaderboard = artist_leaderboard(filtered)
     c1, c2 = st.columns([1.2, 1])
     with c1:
@@ -354,22 +487,71 @@ elif view == "Artists":
                       color_discrete_sequence=[CORAL], markers=False)
         chart(fig, 330)
         st.caption("Daily count of this artist’s charting tracks. Multi-artist credits remain grouped as one source entry.")
-    st.dataframe(leaderboard.head(50).rename(columns={"artist": "Artist", "chart_appearances": "Chart observations", "average_rank": "Average rank", "best_rank": "Best rank"}), hide_index=True, width="stretch", column_config={"Average rank": st.column_config.NumberColumn(format="%.1f")})
+    display_columns = [column for column in ["artist", "chart_appearances", "unique_songs", "days_present", "average_rank", "best_rank"] if column in leaderboard]
+    st.dataframe(leaderboard.head(50)[display_columns].rename(columns={
+        "artist": "Artist", "chart_appearances": "Chart observations", "unique_songs": "Unique songs",
+        "days_present": "Observed days present", "average_rank": "Average rank", "best_rank": "Best rank",
+    }), hide_index=True, width="stretch", column_config={"Average rank": st.column_config.NumberColumn(format="%.1f")})
 
-elif view == "Compare":
-    section("How does chart position vary with song attributes?", "These are descriptive comparisons across chart observations. They do not establish cause and effect.", "Exploration")
-    tab_pop, tab_explicit, tab_release, tab_duration, tab_tracks = st.tabs(["Popularity", "Explicit status", "Album type", "Duration", "Release size"])
-    with tab_pop:
-        if "popularity" not in filtered:
-            empty_state("Popularity is not available in this dataset.")
-        else:
-            summary = popularity_rank_summary(filtered)
-            st.caption(f"Popularity and chart position correlation: {summary['popularity_rank_correlation']:.2f} across {summary['rows']:,} observations. This describes association only; popularity timing and methodology are undocumented.")
-            fig = px.scatter(filtered, x="popularity", y="position", color="album_type" if "album_type" in filtered else None,
-                             color_discrete_sequence=PALETTE, opacity=.5, hover_data=["song", "artist", "date"],
+elif view == "Popularity":
+    section("Popularity score snapshot", "Explore the source-provided popularity score and its descriptive relationship with chart position.", "Popularity signal")
+    if "popularity" not in filtered:
+        empty_state("Popularity is not available in this dataset, so popularity analyses are skipped.")
+    else:
+        popularity_mean = filtered["popularity"].mean()
+        popularity_median = filtered["popularity"].median()
+        popularity_std = filtered["popularity"].std()
+        popularity_corr = popularity_rank_summary(filtered)["popularity_rank_correlation"]
+        p1, p2, p3, p4 = st.columns(4)
+        p1.metric("Mean score", f"{popularity_mean:.1f} / 100")
+        p2.metric("Median score", f"{popularity_median:.1f} / 100")
+        p3.metric("Score standard deviation", f"{popularity_std:.1f}" if pd.notna(popularity_std) else "—")
+        p4.metric("Score vs. rank correlation", f"{popularity_corr:.2f}" if pd.notna(popularity_corr) else "—", help="Descriptive association only. Correlation does not establish cause and effect.")
+        p_left, p_right = st.columns(2)
+        with p_left:
+            section("Popularity score distribution", "Distribution across selected chart observations.")
+            fig = px.histogram(filtered, x="popularity", nbins=20,
+                               labels={"popularity": "Popularity (0–100)", "count": "Observations"},
+                               color_discrete_sequence=[TEAL])
+            chart(fig, 390)
+        with p_right:
+            section("Popularity versus rank", "Rank 1 is at the top of the vertical axis. Association is descriptive, not causal.")
+            fig = px.scatter(filtered, x="popularity", y="position",
+                             color="album_type" if "album_type" in filtered else None,
+                             color_discrete_sequence=PALETTE, opacity=.48,
+                             hover_data=["song", "artist", "date"],
                              labels={"popularity": "Popularity (0–100)", "position": "Chart position", "album_type": "Album type"})
             rank_axis(fig)
-            chart(fig, 500)
+            chart(fig, 390)
+        daily_popularity = filtered.groupby("date", as_index=False).agg(average_popularity=("popularity", "mean"))
+        section("Popularity through time", "The source does not document when or how each popularity score was generated.")
+        fig = px.line(daily_popularity, x="date", y="average_popularity",
+                      labels={"date": "Date", "average_popularity": "Mean popularity (0–100)"},
+                      color_discrete_sequence=[GOLD])
+        fig.update_yaxes(range=[0, 100])
+        chart(fig, 330)
+
+        trend = daily_summary(filtered)
+        if "popularity_trend_score" in trend:
+            section("Seven-snapshot popularity trend", "Trailing average across up to seven observed snapshots; descriptive smoothing, not a forecast.")
+            fig = px.line(trend, x="date", y="popularity_trend_score", labels={"date": "Date", "popularity_trend_score": "Trailing mean popularity"}, color_discrete_sequence=[TEAL])
+            fig.update_yaxes(range=[0, 100])
+            chart(fig, 300)
+        section("Popularity by rank cohort", "Top 10 and Top 20 are cumulative cohorts; Top 50 is the full selected chart population.")
+        cohort = popularity_by_rank_cohort(filtered)
+        st.dataframe(cohort.rename(columns={"cohort": "Rank cohort", "observations": "Observations", "mean_popularity": "Mean popularity", "median_popularity": "Median popularity"}), hide_index=True, width="stretch", column_config={"Mean popularity": st.column_config.NumberColumn(format="%.1f"), "Median popularity": st.column_config.NumberColumn(format="%.1f")})
+        tracks, stability_corr = popularity_stability_summary(filtered)
+        section("Popularity stability vs. rank volatility", "Each point is a song–artist pair. Both volatility measures are sample standard deviations across observed dates.")
+        if stability_corr is None or tracks.empty:
+            empty_state("At least two tracks with repeated popularity and rank observations are needed for this comparison.")
+        else:
+            st.caption(f"Track-level correlation: {stability_corr:.2f}. Descriptive association only.")
+            fig = px.scatter(tracks, x="popularity_volatility", y="rank_volatility", color="average_popularity" if "average_popularity" in tracks else None, color_continuous_scale=[TEAL, GOLD, CORAL], hover_data=["song", "artist", "days_on_chart"], labels={"popularity_volatility": "Popularity volatility", "rank_volatility": "Rank volatility", "average_popularity": "Mean popularity"})
+            chart(fig, 380)
+
+elif view == "Attributes":
+    section("Attribute comparisons", "Compare chart rank across explicit status, release format, track duration, and release size.", "Track metadata")
+    tab_explicit, tab_release, tab_duration, tab_tracks = st.tabs(["Explicit status", "Album type", "Duration", "Release size"])
     with tab_explicit:
         if "is_explicit" not in filtered:
             empty_state("Explicit status is unavailable in this dataset.")
@@ -379,7 +561,11 @@ elif view == "Compare":
                          labels={"is_explicit": "Explicit", "position": "Chart position"})
             rank_axis(fig)
             chart(fig, 430)
-            st.dataframe(filtered.groupby("is_explicit").agg(observations=("position", "size"), average_rank=("position", "mean"), average_popularity=("popularity", "mean")).reset_index(), hide_index=True, width="stretch", column_config={"average_rank": st.column_config.NumberColumn("Average rank", format="%.1f"), "average_popularity": st.column_config.NumberColumn("Average popularity", format="%.1f")})
+            explicit_metrics = {"observations": ("position", "size"), "average_rank": ("position", "mean")}
+            if "popularity" in filtered:
+                explicit_metrics["average_popularity"] = ("popularity", "mean")
+            explicit_summary = filtered.groupby("is_explicit").agg(**explicit_metrics).reset_index()
+            st.dataframe(explicit_summary, hide_index=True, width="stretch", column_config={"average_rank": st.column_config.NumberColumn("Average rank", format="%.1f"), "average_popularity": st.column_config.NumberColumn("Average popularity", format="%.1f")})
     with tab_release:
         if "album_type" not in filtered:
             empty_state("Album type is unavailable in this dataset.")
@@ -390,13 +576,15 @@ elif view == "Compare":
                          labels={"album_type": "Album type", "position": "Chart position"})
             rank_axis(fig)
             chart(fig, 430)
-            st.caption("The compilation category is small in this source; compare its 42 observations with that in mind.")
+            counts = filtered["album_type"].value_counts().to_dict()
+            st.caption("Filtered observations by release type: " + " · ".join(f"{kind}: {count:,}" for kind, count in counts.items()))
     with tab_duration:
         if "duration_ms" not in filtered:
             empty_state("Track duration is unavailable in this dataset.")
         else:
             duration = filtered.copy()
-            duration["duration_minutes"] = duration["duration_ms"] / 60000
+            if "duration_minutes" not in duration:
+                duration["duration_minutes"] = duration["duration_ms"] / 60000
             fig = px.scatter(duration, x="duration_minutes", y="position", color="is_explicit" if "is_explicit" in duration else None,
                              color_discrete_sequence=[TEAL, CORAL], opacity=.45,
                              labels={"duration_minutes": "Track duration (minutes)", "position": "Chart position", "is_explicit": "Explicit"},
@@ -404,18 +592,23 @@ elif view == "Compare":
             rank_axis(fig)
             chart(fig, 480)
             st.caption(f"Duration versus rank correlation: {duration['duration_minutes'].corr(duration['position']):.2f}. Descriptive association only.")
+            if "popularity" in duration:
+                section("Duration versus popularity", "Popularity is the source-provided score; its capture time is undocumented.")
+                fig = px.scatter(duration, x="duration_minutes", y="popularity", color="album_type" if "album_type" in duration else None, color_discrete_sequence=PALETTE, opacity=.45, hover_data=["song", "artist"], labels={"duration_minutes": "Track duration (minutes)", "popularity": "Popularity (0–100)", "album_type": "Album type"})
+                chart(fig, 380)
+                st.caption(f"Duration versus popularity correlation: {duration['duration_minutes'].corr(duration['popularity']):.2f}. Descriptive association only.")
     with tab_tracks:
         if "total_tracks" not in filtered:
             empty_state("Release track count is unavailable in this dataset.")
         else:
-            fig = px.scatter(filtered, x="total_tracks", y="popularity" if "popularity" in filtered else "position",
+            metric_column = "popularity" if "popularity" in filtered else "position"
+            fig = px.scatter(filtered, x="total_tracks", y=metric_column,
                              color="album_type" if "album_type" in filtered else None, color_discrete_sequence=PALETTE,
                              opacity=.45, hover_data=["song", "artist"],
                              labels={"total_tracks": "Tracks on release", "popularity": "Popularity (0–100)", "position": "Chart position", "album_type": "Album type"})
             if "popularity" not in filtered:
                 rank_axis(fig)
             chart(fig, 480)
-            metric = "popularity" if "popularity" in filtered else "position"
             if "popularity" in filtered:
                 st.caption(f"Release size versus popularity correlation: {filtered['total_tracks'].corr(filtered['popularity']):.2f}; versus rank: {filtered['total_tracks'].corr(filtered['position']):.2f}. These are descriptive associations, not causal estimates.")
             else:

@@ -40,7 +40,7 @@ Track identity is the combination of song title and artist credit because titles
 
 ### 3.4 Exploratory analysis
 
-The dashboard provides shared filters for date, artist, song, rank, and album type. Its views include overview KPIs and rank timelines, song-level history, an artist leaderboard, field comparisons, and a data-quality page. Comparison views cover popularity versus rank, explicit versus non-explicit observations, album types, duration, and total tracks. Analyses are skipped or marked unavailable if their source field is absent.
+The dashboard provides shared filters for date, artist, song, rank, and album type. Its views include overview KPIs and rank timelines, song-level history, an artist leaderboard, field comparisons, and a data-quality page. Daily rank distribution is grouped into five ten-position bands. Rank changes, entries, and exits are only calculated between adjacent valid calendar-day snapshots; transitions across the four missing dates are not inferred. The popularity trend is a trailing mean across up to seven observed snapshots, and popularity-by-rank cohorts are cumulative (Top 10, Top 20, Top 50). Track-level popularity stability is compared with rank volatility using sample standard deviations. Comparison views also cover explicit status, album type, duration, and total tracks. Analyses are skipped or marked unavailable if their source field is absent. See `reports/methodology_checklist.md` for item-by-item coverage and definitions.
 
 ## 4. Exploratory findings
 

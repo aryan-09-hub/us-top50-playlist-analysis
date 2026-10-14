@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # United States Top 50 Playlist Performance and Song Popularity Trend Analysis
 
 An interactive Streamlit project for analyzing song rankings, chart longevity, artist appearances, and supplied popularity scores in the United States Top 50 playlist dataset.
@@ -34,7 +33,7 @@ The initial data inspection found 27,800 rows and 10 columns in the supplied CSV
 └── README.md
 ```
 
-The supplied CSV was copied to `data/raw/Atlantic_United_States.csv`; the original file in the project root is unchanged. The default path is configured in `src/data_cleaning.py`. To use another CSV, set `PLAYLIST_DATA_PATH` to its path or pass a path to `load_dataset()` / `load_and_clean()`.
+The supplied CSV was copied to `data/raw/Atlantic_United_States.csv`; the original file in the project root is unchanged. The default path is configured in `src/data_cleaning.py`. To use another CSV, set `PLAYLIST_DATA_PATH` to its path or pass a path to `load_dataset()` / `load_and_clean()`. The full methodology audit and item-by-item implementation checklist is in [`reports/methodology_checklist.md`](reports/methodology_checklist.md).
 
 ## Setup (Windows PowerShell)
 
@@ -76,7 +75,7 @@ python -m pytest
 streamlit run app.py
 ```
 
-The dashboard includes Overview, Songs, Artists, Compare, and Data quality views. Filters for date, artist, song, rank, and album type apply across the views. The first time you change `.streamlit/config.toml`, restart Streamlit for the theme settings to take effect.
+The left sidebar contains navigation and global filters. The analysis sections are Overview dashboard, Playlist trends, Song explorer, Artist analytics, Popularity analysis, Content attributes, and Data quality & methodology. Date, artist, song, chart position, and album type filters apply across sections. The first time you change `.streamlit/config.toml`, restart Streamlit for the theme settings to take effect.
 
 To point the app at a different CSV for the current PowerShell session:
 
@@ -92,6 +91,3 @@ For Streamlit Community Cloud, push the project to GitHub, open your Community C
 The app also needs the CSV at runtime. Raw and processed data are excluded from Git, so the cloud app will not find the local CSV until you provide it through a deployment method you are allowed to use. Only add the dataset to a repository if you have permission to distribute it there. The local `PLAYLIST_DATA_PATH` setting does not upload or mount a file in the cloud environment.
 
 Keep analysis code in `src/`, exploration in `notebooks/`, generated data in `data/processed/`, and written findings in `reports/`. Do not commit private or large source datasets unless the repository explicitly requires them.
-=======
-# us-top50-playlist-analysis
->>>>>>> 408d633db44730a25be21a3a79e37a38d53c4157

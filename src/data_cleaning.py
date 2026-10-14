@@ -58,6 +58,21 @@ def validate_dataset(
     if dates.isna().any():
         issues.append(f"{int(dates.isna().sum())} date value(s) could not be parsed.")
 
+    for column in ("song", "artist"):
+        missing_count = int(data[column].isna().sum())
+        if missing_count:
+            issues.append(f"{column} contains {missing_count} missing value(s).")
+
+    duplicate_track_dates = int(data.duplicated(["date", "song", "artist"]).sum())
+    if duplicate_track_dates:
+        issues.append(f"{duplicate_track_dates} duplicate song-artist-date entr(y/ies) found.")
+
+    for column in ("song", "artist"):
+        values = data[column].astype("string")
+        inconsistent = values.ne(values.str.strip().str.replace(r"\s+", " ", regex=True))
+        if inconsistent.fillna(False).any():
+            issues.append(f"{column} has whitespace formatting that will be standardized in the cleaned copy.")
+
     positions = pd.to_numeric(data["position"], errors="coerce")
     if positions.isna().any():
         issues.append("Position contains missing or non-numeric values.")
@@ -93,7 +108,10 @@ def clean_dataset(data: pd.DataFrame) -> pd.DataFrame:
     for column in ("song", "artist", "album_type"):
         if column not in cleaned:
             continue
-        cleaned[column] = cleaned[column].astype("string").str.strip()
+        cleaned[column] = cleaned[column].astype("string").str.strip().str.replace(r"\s+", " ", regex=True)
+
+    if "duration_ms" in cleaned:
+        cleaned["duration_minutes"] = cleaned["duration_ms"] / 60_000
 
     cleaned = cleaned.drop_duplicates().reset_index(drop=True)
     return cleaned
@@ -101,13 +119,19 @@ def clean_dataset(data: pd.DataFrame) -> pd.DataFrame:
 
 def chart_date_quality(data: pd.DataFrame, expected_size: int = 50) -> pd.DataFrame:
     """Report dates that do not contain one unique row for each chart rank."""
-    if not {"date", "position"}.issubset(data.columns):
-        return pd.DataFrame(columns=["date", "rows", "unique_positions", "min_position", "max_position", "duplicate_positions", "is_valid"])
-    rows = data.groupby("date", dropna=False).agg(
+    required = {"date", "position", "song", "artist"}
+    if not required.issubset(data.columns):
+        return pd.DataFrame(columns=["date", "rows", "unique_positions", "min_position", "max_position", "duplicate_track_dates", "missing_song", "missing_artist", "duplicate_positions", "is_valid"])
+    work = data.copy()
+    work["_duplicate_track_date"] = work.duplicated(["date", "song", "artist"], keep="first")
+    rows = work.groupby("date", dropna=False).agg(
         rows=("position", "size"),
         unique_positions=("position", "nunique"),
         min_position=("position", "min"),
         max_position=("position", "max"),
+        duplicate_track_dates=("_duplicate_track_date", "sum"),
+        missing_song=("song", lambda values: values.isna().sum()),
+        missing_artist=("artist", lambda values: values.isna().sum()),
     )
     rows = rows.reset_index()
     rows["duplicate_positions"] = rows["rows"] - rows["unique_positions"]
@@ -117,6 +141,9 @@ def chart_date_quality(data: pd.DataFrame, expected_size: int = 50) -> pd.DataFr
         & (rows["unique_positions"] == expected_size)
         & (rows["min_position"] == 1)
         & (rows["max_position"] == expected_size)
+        & (rows["duplicate_track_dates"] == 0)
+        & (rows["missing_song"] == 0)
+        & (rows["missing_artist"] == 0)
     )
     return rows
 

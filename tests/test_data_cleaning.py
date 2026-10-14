@@ -70,3 +70,24 @@ def test_analysis_excludes_unparseable_dates_and_out_of_range_ranks():
     ready, invalid = analysis_ready_data(pd.DataFrame(rows), expected_size=2)
     assert ready.empty
     assert len(invalid) == 2
+
+
+def test_cleaning_standardizes_artist_whitespace_without_changing_case():
+    data = sample_data().iloc[[0]].copy()
+    data["artist"] = "  arTist   Name  "
+    cleaned = clean_dataset(data)
+    assert cleaned.loc[0, "artist"] == "arTist Name"
+
+
+def test_duplicate_song_artist_date_invalidates_snapshot_even_with_unique_ranks():
+    data = sample_data().iloc[[0]].copy()
+    other = data.copy()
+    data["position"] = 1
+    other["position"] = 2
+    other["popularity"] = 81
+    raw = pd.concat([data, other], ignore_index=True)
+    issues = validate_dataset(raw)
+    assert any("duplicate song-artist-date" in issue for issue in issues)
+    ready, invalid = analysis_ready_data(raw, expected_size=2)
+    assert ready.empty
+    assert invalid.loc[0, "duplicate_track_dates"] == 1
