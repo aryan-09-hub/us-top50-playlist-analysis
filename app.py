@@ -17,6 +17,7 @@ from src import analysis, data_cleaning
 analysis = importlib.reload(analysis)
 data_cleaning = importlib.reload(data_cleaning)
 artist_leaderboard = analysis.artist_leaderboard
+artist_dominance_over_time = analysis.artist_dominance_over_time
 daily_chart_transitions = analysis.daily_chart_transitions
 daily_rank_distribution = analysis.daily_rank_distribution
 daily_summary = analysis.daily_summary
@@ -563,6 +564,83 @@ with main_column:
             "artist": "Artist", "chart_appearances": "Chart observations", "unique_songs": "Unique songs",
             "days_present": "Observed days present", "average_rank": "Average rank", "best_rank": "Best rank",
         }), hide_index=True, width="stretch", column_config={"Average rank": st.column_config.NumberColumn(format="%.1f")})
+
+        # For a meaningful artist-share denominator, retain the chart population
+        # selected by date/rank/song/release filters, but do not apply the artist
+        # filter to the denominator. Otherwise selected artists would sum to 100%.
+        dominance_population = filter_chart_data(
+            data,
+            start_date=start_day,
+            end_date=end_day,
+            tracks=selected_tracks,
+            rank_range=rank_range,
+            album_types=selected_albums,
+        )
+        dominance = artist_dominance_over_time(dominance_population)
+        section(
+            "Artist dominance over time",
+            "Daily share of eligible chart slots. Choose artists below to compare; the global artist filter does not shrink the denominator. Collaboration slots are divided equally among credited artists.",
+            "Share of voice",
+        )
+        if dominance.empty:
+            empty_state("No artist chart slots are available for this date and filter selection.")
+        else:
+            artist_totals = dominance.groupby("artist")["credited_slots"].sum().sort_values(ascending=False)
+            available_artists = artist_totals.index.tolist()
+            defaults_from_global = sorted({
+                name
+                for credit in selected_artists
+                for name in analysis.split_artist_credit(credit)
+                if name in available_artists
+            })
+            default_artists = defaults_from_global or available_artists[:5]
+            selection_key = "artist_dominance_selection"
+            current_selection = st.session_state.get(selection_key, default_artists)
+            valid_selection = [artist for artist in current_selection if artist in available_artists]
+            if valid_selection != current_selection:
+                st.session_state[selection_key] = valid_selection or default_artists
+            compared_artists = st.multiselect(
+                "Compare artists",
+                available_artists,
+                default=valid_selection or default_artists,
+                key=selection_key,
+                help="Choose multiple credited artists to compare their share of chart slots over time.",
+            )
+            if compared_artists:
+                dates = sorted(dominance_population["date"].dropna().unique())
+                share_history = pd.MultiIndex.from_product(
+                    [dates, compared_artists], names=["date", "artist"]
+                ).to_frame(index=False).merge(
+                    dominance[["date", "artist", "share_pct"]],
+                    on=["date", "artist"],
+                    how="left",
+                )
+                share_history["share_pct"] = share_history["share_pct"].fillna(0)
+                fig = px.line(
+                    share_history,
+                    x="date",
+                    y="share_pct",
+                    color="artist",
+                    markers=False,
+                    color_discrete_sequence=PALETTE,
+                    labels={"date": "Date", "share_pct": "Share of eligible chart slots (%)", "artist": "Artist"},
+                )
+                fig.update_yaxes(rangemode="tozero", ticksuffix="%")
+                chart(fig, 420)
+                total_eligible_slots = dominance_population.groupby("date").size().sum()
+                comparison_summary = (
+                    dominance[dominance["artist"].isin(compared_artists)]
+                    .groupby("artist", as_index=False)["credited_slots"].sum()
+                )
+                comparison_summary["average_share_pct"] = comparison_summary["credited_slots"] / total_eligible_slots * 100
+                st.dataframe(
+                    comparison_summary.rename(columns={"artist": "Artist", "credited_slots": "Weighted chart slots", "average_share_pct": "Average share (%)"}),
+                    hide_index=True,
+                    width="stretch",
+                    column_config={"Weighted chart slots": st.column_config.NumberColumn(format="%.1f"), "Average share (%)": st.column_config.NumberColumn(format="%.2f%%")},
+                )
+            else:
+                st.info("Select at least one artist to display the comparison.")
 
     elif view == "Popularity":
         section("Popularity score snapshot", "Explore the source-provided popularity score and its descriptive relationship with chart position.", "Popularity signal")

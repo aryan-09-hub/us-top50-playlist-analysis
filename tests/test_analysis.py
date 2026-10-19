@@ -1,6 +1,7 @@
 import pandas as pd
 
 from src.analysis import (
+    artist_dominance_over_time,
     artist_leaderboard,
     daily_chart_transitions,
     daily_rank_distribution,
@@ -10,6 +11,7 @@ from src.analysis import (
     popularity_stability_summary,
     rank_movement,
     song_kpis,
+    split_artist_credit,
 )
 
 
@@ -41,6 +43,23 @@ def test_artist_leaderboard_counts_chart_appearances():
     assert result.iloc[0]["chart_appearances"] == 2
     assert result.iloc[0]["unique_songs"] == 2
     assert result.iloc[0]["days_present"] == 2
+
+
+def test_artist_dominance_splits_collaborations_and_conserves_chart_slots():
+    data = pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01", "2024-01-01"]),
+        "artist": ["Artist A", "Artist A & Artist B"],
+    })
+    result = artist_dominance_over_time(data).set_index("artist")
+    assert result.loc["Artist A", "share_pct"] == 75
+    assert result.loc["Artist B", "share_pct"] == 25
+    assert result["share_pct"].sum() == 100
+
+
+def test_artist_credit_parser_keeps_earth_wind_and_fire_together():
+    assert split_artist_credit("Earth, Wind & Fire & Guest Artist") == [
+        "Earth, Wind & Fire", "Guest Artist"
+    ]
 
 
 def test_daily_summary_adds_trailing_seven_observation_popularity_mean():

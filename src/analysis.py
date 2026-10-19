@@ -57,6 +57,47 @@ def artist_leaderboard(data: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
 
 
+def split_artist_credit(credit: object) -> list[str]:
+    """Split a source artist credit into credited performers.
+
+    The source uses `` & `` for collaborations. Preserve the band name
+    ``Earth, Wind & Fire`` as one artist while splitting other ampersand groups.
+    This is a transparent, dataset-specific parsing rule, not alias matching.
+    """
+    if pd.isna(credit):
+        return []
+    band_token = "EARTH_WIND_AND_FIRE"
+    text = str(credit).strip().replace("Earth, Wind & Fire", band_token)
+    names = [part.strip().replace(band_token, "Earth, Wind & Fire") for part in text.split(" & ")]
+    return list(dict.fromkeys(name for name in names if name))
+
+
+def artist_dominance_over_time(data: pd.DataFrame) -> pd.DataFrame:
+    """Measure each credited artist's fractional share of chart slots by date.
+
+    Each chart row contributes one slot, divided equally across artists in a
+    collaboration credit. Daily shares sum to 100% when all chart rows are
+    included. The denominator is the number of chart rows supplied per date.
+    """
+    _require(data, {"date", "artist"})
+    if data.empty:
+        return pd.DataFrame(columns=["date", "artist", "credited_slots", "chart_slots", "share_pct"])
+
+    work = data[["date", "artist"]].dropna(subset=["date", "artist"]).copy()
+    work["artists"] = work["artist"].map(split_artist_credit)
+    work["credit_count"] = work["artists"].map(len)
+    work = work[work["credit_count"] > 0].explode("artists", ignore_index=True)
+    work["credited_slots"] = 1 / work["credit_count"]
+    daily_slots = data.dropna(subset=["date"]).groupby("date").size().rename("chart_slots")
+    result = (
+        work.groupby(["date", "artists"], as_index=False)["credited_slots"].sum()
+        .rename(columns={"artists": "artist"})
+        .merge(daily_slots, on="date", how="left")
+    )
+    result["share_pct"] = result["credited_slots"] / result["chart_slots"] * 100
+    return result.sort_values(["date", "share_pct", "artist"], ascending=[True, False, True]).reset_index(drop=True)
+
+
 def popularity_rank_summary(data: pd.DataFrame) -> dict[str, float | int | None]:
     """Describe popularity and its correlation with chart position, if available."""
     if "popularity" not in data.columns or "position" not in data.columns:

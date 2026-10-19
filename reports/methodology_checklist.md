@@ -35,7 +35,8 @@ Use this checklist to confirm which requested analyses are implemented and what 
 
 - [x] Unique song credits per artist when song is available (`artist_leaderboard`).
 - [x] Total chart-row appearances and distinct observed dates per artist (`artist_leaderboard`). “Total days” is distinct dates, not summed continuous tenure.
-- [x] Artist dominance over the selected period and daily artist appearances (Artists page). Multi-artist credit strings are retained as supplied and are not fractionally allocated.
+- [x] Artist dominance over time is shown as daily share of eligible chart slots, with multiple artists comparable in one view (`artist_dominance_over_time`, Artists page). Collaboration slots are divided equally among names split on ` & `; the known band name `Earth, Wind & Fire` is preserved. Per-date shares sum to 100% when all chart rows are included.
+- [x] The artist leaderboard still reports original source-credit strings as credited rows; artist aliases and spelling variants are not inferred or merged.
 
 ## Popularity score analytics
 

@@ -35,12 +35,12 @@ Track identity is the combination of song title and artist credit because titles
 - **Best rank:** minimum observed chart position; position 1 is best.
 - **Rank volatility:** sample standard deviation of the track’s observed positions. It describes spread, not direction.
 - **Popularity trend:** average supplied popularity score across chart observations on each date.
-- **Artist dominance:** chart-row appearances credited to each artist. This measures representation in the provided chart, not audience share or total streams.
+- **Artist representation:** the leaderboard counts chart-row appearances using source artist-credit strings. A separate artist-dominance time series splits collaboration credits on ` & ` and divides each chart slot equally among the credited names; this measures share of chart slots, not audience share or total streams. The source band name `Earth, Wind & Fire` is kept intact, and aliases are not inferred or merged.
 - **Association:** Pearson correlation is shown for continuous field comparisons. Correlation is descriptive and does not establish causation.
 
 ### 3.4 Exploratory analysis
 
-The dashboard provides shared filters for date, artist, song, rank, and album type. Its views include overview KPIs and rank timelines, song-level history, an artist leaderboard, field comparisons, and a data-quality page. Daily rank distribution is grouped into five ten-position bands. Rank changes, entries, and exits are only calculated between adjacent valid calendar-day snapshots; transitions across the four missing dates are not inferred. The popularity trend is a trailing mean across up to seven observed snapshots, and popularity-by-rank cohorts are cumulative (Top 10, Top 20, Top 50). Track-level popularity stability is compared with rank volatility using sample standard deviations. Comparison views also cover explicit status, album type, duration, and total tracks. Analyses are skipped or marked unavailable if their source field is absent. See `reports/methodology_checklist.md` for item-by-item coverage and definitions.
+The dashboard provides shared filters for date, artist, song, rank, and album type. Its views include overview KPIs and rank timelines, song-level history, an artist leaderboard, artist share-of-chart-slot trends with multi-artist comparisons, field comparisons, and a data-quality page. Daily rank distribution is grouped into five ten-position bands. Rank changes, entries, and exits are only calculated between adjacent valid calendar-day snapshots; transitions across the four missing dates are not inferred. The popularity trend is a trailing mean across up to seven observed snapshots, and popularity-by-rank cohorts are cumulative (Top 10, Top 20, Top 50). Track-level popularity stability is compared with rank volatility using sample standard deviations. Comparison views also cover explicit status, album type, duration, and total tracks. Analyses are skipped or marked unavailable if their source field is absent. See `reports/methodology_checklist.md` for item-by-item coverage and definitions.
 
 ## 4. Exploratory findings
 
@@ -79,7 +79,7 @@ Track duration has a weak negative correlation with rank (r = −0.045). Release
 - March 1, 2025 has rank conflicts and is excluded, so that date cannot support rank conclusions.
 - Four calendar dates are absent from the original source. The chart is therefore not a fully continuous daily record.
 - “Days on chart” is a count of observed dates and does not imply uninterrupted presence.
-- Artist credits are strings and can contain multiple names; the analysis does not parse or fractionally allocate them.
+- The artist leaderboard preserves source artist-credit strings. The dominance time series splits ` & ` collaborations and allocates each slot equally across names, but may not perfectly resolve all credits; aliases, spelling variants, and other collaboration conventions are not normalized.
 - Metadata can vary for the same song-artist pair. Popularity, duration, album type, track count, and artwork are treated as recorded observation-level values.
 - Chart observations are repeated measurements of songs and are not independent samples. Category comparisons are descriptive, not inferential.
 - Correlations and average ranks may conceal differences in song age, genre, artist, release timing, and exposure.
