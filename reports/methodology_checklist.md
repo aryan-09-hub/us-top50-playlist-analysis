@@ -22,7 +22,7 @@ Use this checklist to confirm which requested analyses are implemented and what 
 
 - [x] Daily rank distribution in five bands: 1–10 through 41–50 (`daily_rank_distribution`, Trends page).
 - [x] Rank movement per track between adjacent calendar-day snapshots (`rank_movement`); changes across date gaps are left undefined.
-- [x] Observed entry and exit counts between adjacent valid calendar-day snapshots (`daily_chart_transitions`). Missing-date gaps are not treated as transitions.
+- [x] Observed entry and exit counts plus song/artist identities and the relevant entry/last chart positions between adjacent valid calendar-day snapshots (`daily_chart_transitions`, `chart_transition_details`; Trends page). Missing-date gaps are not treated as transitions.
 - [x] Fast risers and slow decliners: latest comparable snapshot, threshold of at least 10 rank places (Trends page). The threshold is an explicit display rule, not a statistical classification.
 
 ## Song-level performance

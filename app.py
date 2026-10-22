@@ -18,6 +18,7 @@ analysis = importlib.reload(analysis)
 data_cleaning = importlib.reload(data_cleaning)
 artist_leaderboard = analysis.artist_leaderboard
 artist_dominance_over_time = analysis.artist_dominance_over_time
+chart_transition_details = analysis.chart_transition_details
 daily_chart_transitions = analysis.daily_chart_transitions
 daily_rank_distribution = analysis.daily_rank_distribution
 daily_summary = analysis.daily_summary
@@ -468,6 +469,47 @@ with main_column:
                          color_discrete_map={"entries": TEAL, "exits": CORAL},
                          labels={"date": "Snapshot date", "tracks": "Track count", "transition": "Observed transition"})
             chart(fig, 350)
+        transition_details = chart_transition_details(filtered)
+        section(
+            "Songs entering and leaving",
+            "Choose a snapshot date to inspect its song-level changes in the current filtered view. The first date in the selected window has no prior date for comparison; gaps are skipped.",
+            "Track-level changes",
+        )
+        if transition_details.empty:
+            empty_state("No song entries or exits can be compared between consecutive valid snapshots in this selection.")
+        else:
+            transition_dates = sorted(transition_details["date"].unique())
+            transition_date = st.selectbox(
+                "Snapshot date",
+                transition_dates,
+                index=len(transition_dates) - 1,
+                format_func=lambda day: pd.Timestamp(day).strftime("%b %d, %Y"),
+                key="transition_detail_date",
+            )
+            day_details = transition_details[transition_details["date"].eq(transition_date)]
+            entry_rows = day_details.loc[day_details["transition"].eq("Entry"), ["song", "artist", "position"]]
+            exit_rows = day_details.loc[day_details["transition"].eq("Exit"), ["song", "artist", "previous_position"]]
+            entry_col, exit_col = st.columns(2)
+            with entry_col:
+                section("Entered the selected view", f"{len(entry_rows):,} song(s) newly present on {pd.Timestamp(transition_date).strftime('%b %d, %Y')}.")
+                if entry_rows.empty:
+                    st.info("No songs entered on this snapshot.")
+                else:
+                    st.dataframe(
+                        entry_rows.rename(columns={"song": "Song", "artist": "Artist", "position": "Entry rank"}),
+                        hide_index=True,
+                        width="stretch",
+                    )
+            with exit_col:
+                section("Left the selected view", f"{len(exit_rows):,} song(s) no longer present on {pd.Timestamp(transition_date).strftime('%b %d, %Y')}.")
+                if exit_rows.empty:
+                    st.info("No songs exited on this snapshot.")
+                else:
+                    st.dataframe(
+                        exit_rows.rename(columns={"song": "Song", "artist": "Artist", "previous_position": "Last rank"}),
+                        hide_index=True,
+                        width="stretch",
+                    )
         movement = rank_movement(filtered)
         latest_date = filtered["date"].max()
         latest_moves = movement.loc[movement["date"].eq(latest_date) & movement["rank_change"].notna()].copy()

@@ -3,6 +3,7 @@ import pandas as pd
 from src.analysis import (
     artist_dominance_over_time,
     artist_leaderboard,
+    chart_transition_details,
     daily_chart_transitions,
     daily_rank_distribution,
     daily_summary,
@@ -91,6 +92,21 @@ def test_transition_counts_only_adjacent_daily_snapshots():
     assert len(result) == 1
     assert result.iloc[0]["entries"] == 1
     assert result.iloc[0]["exits"] == 1
+
+
+def test_transition_details_identify_entering_and_exiting_tracks_with_ranks():
+    data = pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01", "2024-01-01", "2024-01-02", "2024-01-02", "2024-01-04"]),
+        "song": ["A", "B", "B", "C", "D"],
+        "artist": ["X", "X", "X", "Y", "Z"],
+        "position": [5, 10, 8, 1, 2],
+    })
+    result = chart_transition_details(data)
+    assert len(result) == 2
+    entrant = result[result["transition"].eq("Entry")].iloc[0]
+    exiter = result[result["transition"].eq("Exit")].iloc[0]
+    assert (entrant["song"], entrant["artist"], entrant["position"]) == ("C", "Y", 1)
+    assert (exiter["song"], exiter["artist"], exiter["previous_position"]) == ("A", "X", 5)
 
 
 def test_daily_rank_distribution_and_popularity_cohorts():

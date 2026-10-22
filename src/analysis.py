@@ -186,6 +186,57 @@ def daily_chart_transitions(data: pd.DataFrame, max_gap_days: int = 1) -> pd.Dat
     return pd.DataFrame(rows, columns=["date", "entries", "exits", "days_between_snapshots"])
 
 
+def chart_transition_details(data: pd.DataFrame, max_gap_days: int = 1) -> pd.DataFrame:
+    """List the song-artist rows entering or exiting between adjacent snapshots.
+
+    Comparisons across gaps larger than ``max_gap_days`` are skipped. Rank
+    columns are included when position is available, with the absent side left
+    null for each event.
+    """
+    _require(data, {"date", "song", "artist"})
+    columns = ["date", "transition", "song", "artist", "previous_position", "position"]
+    if data.empty:
+        return pd.DataFrame(columns=columns)
+
+    work = data.copy()
+    work["date"] = pd.to_datetime(work["date"], errors="coerce")
+    work = work.dropna(subset=["date", "song", "artist"])
+    has_position = "position" in work.columns
+    snapshots: dict[pd.Timestamp, dict[tuple[str, str], object]] = {}
+    for day, group in work.groupby("date"):
+        if has_position:
+            snapshots[day] = {
+                (row.song, row.artist): row.position
+                for row in group[["song", "artist", "position"]].itertuples(index=False)
+            }
+        else:
+            snapshots[day] = {
+                key: None for key in group[["song", "artist"]].itertuples(index=False, name=None)
+            }
+
+    dates = sorted(snapshots)
+    rows = []
+    for previous_day, current_day in zip(dates, dates[1:]):
+        elapsed = (current_day - previous_day).days
+        if elapsed > max_gap_days:
+            continue
+        previous, current = snapshots[previous_day], snapshots[current_day]
+        for song, artist in sorted(current.keys() - previous.keys()):
+            rows.append({
+                "date": current_day, "transition": "Entry", "song": song, "artist": artist,
+                "previous_position": None, "position": current[(song, artist)],
+            })
+        for song, artist in sorted(previous.keys() - current.keys()):
+            rows.append({
+                "date": current_day, "transition": "Exit", "song": song, "artist": artist,
+                "previous_position": previous[(song, artist)], "position": None,
+            })
+    return pd.DataFrame(rows, columns=columns).sort_values(
+        ["date", "transition", "position", "previous_position", "song", "artist"],
+        na_position="last",
+    ).reset_index(drop=True)
+
+
 def popularity_by_rank_cohort(data: pd.DataFrame) -> pd.DataFrame:
     """Summarize source popularity across cumulative Top 10, Top 20 and Top 50."""
     _require(data, {"position", "popularity"})
