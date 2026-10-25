@@ -18,8 +18,7 @@ analysis = importlib.reload(analysis)
 data_cleaning = importlib.reload(data_cleaning)
 artist_leaderboard = analysis.artist_leaderboard
 artist_dominance_over_time = analysis.artist_dominance_over_time
-chart_transition_details = analysis.chart_transition_details
-daily_chart_transitions = analysis.daily_chart_transitions
+chart_transition_window = analysis.chart_transition_window
 daily_rank_distribution = analysis.daily_rank_distribution
 daily_summary = analysis.daily_summary
 filter_chart_data = analysis.filter_chart_data
@@ -459,8 +458,11 @@ with main_column:
                       category_orders={"rank_band": band_order}, color_discrete_sequence=[GOLD, TEAL, "#10B981", "#7C3AED", CORAL],
                       labels={"date": "Date", "observations": "Selected tracks", "rank_band": "Rank band"})
         chart(fig, 350)
-        transitions = daily_chart_transitions(filtered)
-        section("Observed entries and exits", "Compares adjacent valid calendar-day snapshots only. Gaps and malformed snapshots are skipped, so this does not infer exits during missing dates.")
+        transitions, transition_details = chart_transition_window(data, start_day, end_day)
+        section(
+            "Top 50 entries and exits",
+            "Counts changes between complete, adjacent valid Top 50 snapshots. The date range selects event dates; artist, song, rank, and album filters do not change these full-chart events. Gaps and excluded snapshots are skipped.",
+        )
         if transitions.empty:
             empty_state("No adjacent valid snapshots are available for entry/exit comparisons in this date selection.")
         else:
@@ -469,14 +471,13 @@ with main_column:
                          color_discrete_map={"entries": TEAL, "exits": CORAL},
                          labels={"date": "Snapshot date", "tracks": "Track count", "transition": "Observed transition"})
             chart(fig, 350)
-        transition_details = chart_transition_details(filtered)
         section(
-            "Songs entering and leaving",
-            "Choose a snapshot date to inspect its song-level changes in the current filtered view. The first date in the selected window has no prior date for comparison; gaps are skipped.",
+            "Songs entering and leaving the Top 50",
+            "The lists show every observed Top 50 entry and exit on the selected date, regardless of artist, song, rank, or album filters. The date range limits which event dates are shown; transitions across gaps are not inferred.",
             "Track-level changes",
         )
         if transition_details.empty:
-            empty_state("No song entries or exits can be compared between consecutive valid snapshots in this selection.")
+            empty_state("No Top 50 entries or exits can be compared between adjacent valid snapshots in this date range.")
         else:
             transition_dates = sorted(transition_details["date"].unique())
             transition_date = st.selectbox(
@@ -487,28 +488,40 @@ with main_column:
                 key="transition_detail_date",
             )
             day_details = transition_details[transition_details["date"].eq(transition_date)]
-            entry_rows = day_details.loc[day_details["transition"].eq("Entry"), ["song", "artist", "position"]]
-            exit_rows = day_details.loc[day_details["transition"].eq("Exit"), ["song", "artist", "previous_position"]]
-            entry_col, exit_col = st.columns(2)
-            with entry_col:
-                section("Entered the selected view", f"{len(entry_rows):,} song(s) newly present on {pd.Timestamp(transition_date).strftime('%b %d, %Y')}.")
+            entry_rows = day_details.loc[day_details["transition"].eq("Entry")].assign(
+                **{"Song · artist": lambda rows: rows["song"] + " · " + rows["artist"], "Entry rank": lambda rows: rows["position"]}
+            )[["Song · artist", "Entry rank"]]
+            exit_rows = day_details.loc[day_details["transition"].eq("Exit")].assign(
+                **{"Song · artist": lambda rows: rows["song"] + " · " + rows["artist"], "Last rank": lambda rows: rows["previous_position"]}
+            )[["Song · artist", "Last rank"]]
+            entry_tab, exit_tab = st.tabs([f"Entered ({len(entry_rows)})", f"Left ({len(exit_rows)})"])
+            with entry_tab:
+                section("Entered the Top 50", f"{len(entry_rows):,} song(s) newly present on {pd.Timestamp(transition_date).strftime('%b %d, %Y')}.")
                 if entry_rows.empty:
                     st.info("No songs entered on this snapshot.")
                 else:
                     st.dataframe(
-                        entry_rows.rename(columns={"song": "Song", "artist": "Artist", "position": "Entry rank"}),
+                        entry_rows,
                         hide_index=True,
                         width="stretch",
+                        column_config={
+                            "Song · artist": st.column_config.TextColumn(width="large"),
+                            "Entry rank": st.column_config.NumberColumn(width="small", format="%d"),
+                        },
                     )
-            with exit_col:
-                section("Left the selected view", f"{len(exit_rows):,} song(s) no longer present on {pd.Timestamp(transition_date).strftime('%b %d, %Y')}.")
+            with exit_tab:
+                section("Left the Top 50", f"{len(exit_rows):,} song(s) no longer present on {pd.Timestamp(transition_date).strftime('%b %d, %Y')}.")
                 if exit_rows.empty:
                     st.info("No songs exited on this snapshot.")
                 else:
                     st.dataframe(
-                        exit_rows.rename(columns={"song": "Song", "artist": "Artist", "previous_position": "Last rank"}),
+                        exit_rows,
                         hide_index=True,
                         width="stretch",
+                        column_config={
+                            "Song · artist": st.column_config.TextColumn(width="large"),
+                            "Last rank": st.column_config.NumberColumn(width="small", format="%d"),
+                        },
                     )
         movement = rank_movement(filtered)
         latest_date = filtered["date"].max()

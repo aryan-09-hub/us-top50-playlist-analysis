@@ -1,9 +1,11 @@
 import pandas as pd
+import pytest
 
 from src.analysis import (
     artist_dominance_over_time,
     artist_leaderboard,
     chart_transition_details,
+    chart_transition_window,
     daily_chart_transitions,
     daily_rank_distribution,
     daily_summary,
@@ -107,6 +109,44 @@ def test_transition_details_identify_entering_and_exiting_tracks_with_ranks():
     exiter = result[result["transition"].eq("Exit")].iloc[0]
     assert (entrant["song"], entrant["artist"], entrant["position"]) == ("C", "Y", 1)
     assert (exiter["song"], exiter["artist"], exiter["previous_position"]) == ("A", "X", 5)
+
+
+def test_transition_window_uses_full_chart_and_prior_snapshot_at_window_start():
+    first_day = pd.DataFrame({
+        "date": pd.Timestamp("2024-01-01"),
+        "position": range(1, 51),
+        "song": [f"Track {rank:02d}" for rank in range(1, 51)],
+        "artist": ["Artist"] * 50,
+        "album_type": ["album"] * 50,
+    })
+    second_day = first_day.copy()
+    second_day["date"] = pd.Timestamp("2024-01-02")
+    second_day.loc[49, "song"] = "New Entry"
+    third_day = second_day.copy()
+    third_day["date"] = pd.Timestamp("2024-01-03")
+    third_day.loc[19, "position"], third_day.loc[20, "position"] = 21, 20
+    full_chart = pd.concat([first_day, second_day, third_day], ignore_index=True)
+
+    counts, details = chart_transition_window(
+        full_chart, start_date="2024-01-02", end_date="2024-01-03"
+    )
+
+    assert counts["date"].tolist() == [pd.Timestamp("2024-01-02"), pd.Timestamp("2024-01-03")]
+    assert counts.loc[0, "entries"] == 1
+    assert counts.loc[0, "exits"] == 1
+    assert counts.loc[1, "entries"] == 0
+    assert counts.loc[1, "exits"] == 0
+    assert details["date"].tolist() == [pd.Timestamp("2024-01-02")] * 2
+    assert set(details.loc[details["transition"].eq("Entry"), "song"]) == {"New Entry"}
+    assert set(details.loc[details["transition"].eq("Exit"), "song"]) == {"Track 50"}
+
+
+def test_transition_window_rejects_reversed_date_range():
+    data = pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01"]), "song": ["Track"], "artist": ["Artist"]
+    })
+    with pytest.raises(ValueError, match="start_date"):
+        chart_transition_window(data, "2024-01-02", "2024-01-01")
 
 
 def test_daily_rank_distribution_and_popularity_cohorts():

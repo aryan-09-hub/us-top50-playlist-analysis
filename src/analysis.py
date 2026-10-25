@@ -237,6 +237,39 @@ def chart_transition_details(data: pd.DataFrame, max_gap_days: int = 1) -> pd.Da
     ).reset_index(drop=True)
 
 
+def chart_transition_window(
+    data: pd.DataFrame,
+    start_date: date | datetime | pd.Timestamp | None = None,
+    end_date: date | datetime | pd.Timestamp | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return full-chart transition counts and details for event dates in a window.
+
+    Pass the complete analysis-ready playlist snapshots. Transitions are
+    calculated before the event-date window is applied, so the first displayed
+    date can be compared with its preceding valid snapshot. Do not pass rows
+    pre-filtered by artist, song, rank, or album type.
+    """
+    counts = daily_chart_transitions(data)
+    details = chart_transition_details(data)
+
+    start = pd.Timestamp(start_date).normalize() if start_date is not None else None
+    end = pd.Timestamp(end_date).normalize() if end_date is not None else None
+    if start is not None and end is not None and start > end:
+        raise ValueError("start_date must not be later than end_date")
+
+    def in_window(frame: pd.DataFrame) -> pd.DataFrame:
+        if frame.empty:
+            return frame
+        mask = pd.Series(True, index=frame.index)
+        if start is not None:
+            mask &= frame["date"] >= start
+        if end is not None:
+            mask &= frame["date"] <= end
+        return frame.loc[mask].reset_index(drop=True)
+
+    return in_window(counts), in_window(details)
+
+
 def popularity_by_rank_cohort(data: pd.DataFrame) -> pd.DataFrame:
     """Summarize source popularity across cumulative Top 10, Top 20 and Top 50."""
     _require(data, {"position", "popularity"})
