@@ -14,6 +14,7 @@ from src.analysis import (
     popularity_stability_summary,
     rank_movement,
     song_kpis,
+    song_popularity_trend,
     split_artist_credit,
 )
 
@@ -72,6 +73,23 @@ def test_daily_summary_adds_trailing_seven_observation_popularity_mean():
     assert result.loc[0, "popularity_trend_score"] == 10
     assert result.loc[6, "popularity_trend_score"] == 40
     assert result.loc[7, "popularity_trend_score"] == 50
+
+
+def test_song_popularity_trend_groups_duplicate_dates_and_smooths_observed_values():
+    data = pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01", "2024-01-01", "2024-01-04", "2024-01-05"]),
+        "popularity": [20, 40, 60, None],
+    })
+    result = song_popularity_trend(data, window=2)
+    assert result["date"].tolist() == [pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-04")]
+    assert result["popularity"].tolist() == [30, 60]
+    assert result["popularity_trend_score"].tolist() == [30, 45]
+
+
+def test_song_popularity_trend_rejects_nonpositive_window():
+    data = pd.DataFrame({"date": pd.to_datetime(["2024-01-01"]), "popularity": [40]})
+    with pytest.raises(ValueError, match="window"):
+        song_popularity_trend(data, window=0)
 
 
 def test_rank_movement_does_not_bridge_missing_calendar_dates():

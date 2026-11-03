@@ -136,6 +136,26 @@ def daily_summary(data: pd.DataFrame) -> pd.DataFrame:
     return summary
 
 
+def song_popularity_trend(data: pd.DataFrame, window: int = 7) -> pd.DataFrame:
+    """Return a selected song's dated popularity observations and rolling mean.
+
+    Duplicate song observations on a date are averaged. The rolling mean spans
+    observed dates (not calendar days), and missing popularity values are omitted.
+    """
+    _require(data, {"date", "popularity"})
+    if window < 1:
+        raise ValueError("window must be at least 1")
+    if data.empty:
+        return pd.DataFrame(columns=["date", "popularity", "popularity_trend_score"])
+
+    work = data[["date", "popularity"]].copy()
+    work["popularity"] = pd.to_numeric(work["popularity"], errors="coerce")
+    work = work.dropna(subset=["date", "popularity"])
+    trend = work.groupby("date", as_index=False)["popularity"].mean().sort_values("date")
+    trend["popularity_trend_score"] = trend["popularity"].rolling(window, min_periods=1).mean()
+    return trend.reset_index(drop=True)
+
+
 def rank_movement(data: pd.DataFrame, max_gap_days: int = 1) -> pd.DataFrame:
     """Calculate daily rank changes, leaving gaps across missing dates undefined.
 

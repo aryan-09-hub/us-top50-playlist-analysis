@@ -27,6 +27,7 @@ popularity_rank_summary = analysis.popularity_rank_summary
 popularity_stability_summary = analysis.popularity_stability_summary
 rank_movement = analysis.rank_movement
 song_kpis = analysis.song_kpis
+song_popularity_trend = analysis.song_popularity_trend
 DEFAULT_DATA_PATH = data_cleaning.DEFAULT_DATA_PATH
 analysis_ready_data = data_cleaning.analysis_ready_data
 load_dataset = data_cleaning.load_dataset
@@ -564,6 +565,39 @@ with main_column:
         b.metric("Best rank", f"#{int(track_metrics['best_rank'])}")
         c.metric("Average rank", f"{track_metrics['average_rank']:.1f}")
         d.metric("Rank volatility", f"{track_metrics['rank_volatility']:.1f}", help="Standard deviation of observed ranks; lower values mean less spread in rank.")
+        if "popularity" in track_data:
+            popularity_trend = song_popularity_trend(track_data)
+            section(
+                "Selected song popularity over time",
+                "Source-provided popularity by playlist observation date, with a trailing mean over up to seven observed dates. The source does not document when each score was measured.",
+                "Popularity history",
+            )
+            if popularity_trend.empty:
+                empty_state("No dated popularity scores are available for this song in the current filter selection.")
+            else:
+                fig = px.line(
+                    popularity_trend,
+                    x="date",
+                    y=["popularity", "popularity_trend_score"],
+                    markers=True,
+                    color_discrete_map={"popularity": GOLD, "popularity_trend_score": TEAL},
+                    labels={
+                        "date": "Playlist observation date",
+                        "value": "Popularity (0–100)",
+                        "variable": "Measure",
+                        "popularity": "Popularity score",
+                        "popularity_trend_score": "7-observation rolling mean",
+                    },
+                )
+                trace_names = {
+                    "popularity": "Observed score",
+                    "popularity_trend_score": "7-date rolling mean",
+                }
+                fig.for_each_trace(lambda trace: trace.update(name=trace_names.get(trace.name, trace.name)))
+                fig.update_yaxes(range=[0, 100], dtick=20)
+                chart(fig, 360)
+        else:
+            empty_state("Popularity is unavailable in this dataset; the song popularity trend is skipped.")
         fig = px.line(track_data, x="date", y="position", markers=True,
                       labels={"date": "Date", "position": "Chart position"}, color_discrete_sequence=[TEAL])
         rank_axis(fig)

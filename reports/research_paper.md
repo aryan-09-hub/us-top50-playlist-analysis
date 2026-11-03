@@ -34,7 +34,7 @@ Track identity is the combination of song title and artist credit because titles
 - **Average rank:** arithmetic mean of observed chart positions; lower values indicate stronger typical placement.
 - **Best rank:** minimum observed chart position; position 1 is best.
 - **Rank volatility:** sample standard deviation of the track’s observed positions. It describes spread, not direction.
-- **Popularity trend:** average supplied popularity score across chart observations on each date.
+- **Popularity trend:** average supplied popularity score across chart observations on each date; the Song explorer also plots one selected song's dated scores and rolling mean across up to seven observed dates. The score capture timestamp is undocumented.
 - **Artist representation:** the leaderboard counts chart-row appearances using source artist-credit strings. A separate artist-dominance time series splits collaboration credits on ` & ` and divides each chart slot equally among the credited names; this measures share of chart slots, not audience share or total streams. The source band name `Earth, Wind & Fire` is kept intact, and aliases are not inferred or merged.
 - **Association:** Pearson correlation is shown for continuous field comparisons. Correlation is descriptive and does not establish causation.
 

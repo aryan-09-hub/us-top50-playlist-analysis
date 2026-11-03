@@ -29,6 +29,7 @@ Use this checklist to confirm which requested analyses are implemented and what 
 
 - [x] Longest observed chart presence and song rank summaries (`song_kpis`, Songs page).
 - [x] Highest mean popularity when the popularity field exists (Songs page).
+- [x] Selected song's dated popularity observations and trailing mean over up to seven observed dates (Song explorer). The source popularity timestamp is undocumented, so dates indicate playlist observations rather than verified score capture dates.
 - [x] Best-rank versus observed-days comparison (Songs page). The chart uses track-level summaries; gaps in observed history may exist.
 
 ## Artist performance
