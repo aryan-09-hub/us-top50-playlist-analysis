@@ -23,6 +23,7 @@ daily_rank_distribution = analysis.daily_rank_distribution
 daily_summary = analysis.daily_summary
 filter_chart_data = analysis.filter_chart_data
 popularity_by_rank_cohort = analysis.popularity_by_rank_cohort
+popularity_cohort_distribution = analysis.popularity_cohort_distribution
 popularity_rank_summary = analysis.popularity_rank_summary
 popularity_stability_summary = analysis.popularity_stability_summary
 rank_movement = analysis.rank_movement
@@ -402,9 +403,40 @@ with main_column:
                 fig = px.line(trend, x="date", y="popularity_trend_score", labels={"date": "Date", "popularity_trend_score": "Trailing mean popularity"}, color_discrete_sequence=[TEAL])
                 fig.update_yaxes(range=[0, 100])
                 chart(fig, 300)
-            section("Popularity by rank cohort", "Top 10 and Top 20 are cumulative cohorts; Top 50 is the full selected chart population.")
+            section(
+                "Popularity distribution by rank cohort",
+                "Box plots show the median, middle 50% (box), and outliers. The cohorts are cumulative: Top 10 is included in Top 20, and Top 20 is included in Top 50, so observations repeat across cohorts.",
+            )
             cohort = popularity_by_rank_cohort(filtered)
-            st.dataframe(cohort.rename(columns={"cohort": "Rank cohort", "observations": "Observations", "mean_popularity": "Mean popularity", "median_popularity": "Median popularity"}), hide_index=True, width="stretch", column_config={"Mean popularity": st.column_config.NumberColumn(format="%.1f"), "Median popularity": st.column_config.NumberColumn(format="%.1f")})
+            cohort_dist = popularity_cohort_distribution(filtered)
+            if cohort_dist.empty:
+                empty_state("No valid popularity scores are available for the selected rank cohorts.")
+            else:
+                fig = px.box(
+                    cohort_dist,
+                    x="popularity",
+                    y="cohort",
+                    color="cohort",
+                    points="outliers",
+                    category_orders={"cohort": ["Top 10", "Top 20", "Top 50"]},
+                    color_discrete_sequence=[TEAL, GOLD, CORAL],
+                    hover_data={"popularity": ":.1f", "cohort": True},
+                    labels={"cohort": "Cumulative rank cohort", "popularity": "Popularity (0–100)"},
+                )
+                fig.update_xaxes(range=[0, 100], dtick=20)
+                fig.update_yaxes(autorange="reversed")
+                chart(fig, 360)
+            st.dataframe(
+                cohort.rename(columns={
+                    "cohort": "Rank cohort", "observations": "Observations",
+                    "mean_popularity": "Mean", "median_popularity": "Median",
+                    "p10_popularity": "P10", "p25_popularity": "P25",
+                    "p75_popularity": "P75", "p90_popularity": "P90",
+                }),
+                hide_index=True,
+                width="stretch",
+                column_config={name: st.column_config.NumberColumn(format="%.1f") for name in ["Mean", "Median", "P10", "P25", "P75", "P90"]},
+            )
             tracks, stability_corr = popularity_stability_summary(filtered)
             section("Popularity stability vs. rank volatility", "Each point is a song–artist pair. Both volatility measures are sample standard deviations across observed dates.")
             if stability_corr is None or tracks.empty:

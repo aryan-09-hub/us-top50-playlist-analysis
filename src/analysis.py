@@ -302,8 +302,31 @@ def popularity_by_rank_cohort(data: pd.DataFrame) -> pd.DataFrame:
             "observations": int(values.size),
             "mean_popularity": float(values.mean()) if not values.empty else float("nan"),
             "median_popularity": float(values.median()) if not values.empty else float("nan"),
+            "p10_popularity": float(values.quantile(0.10)) if not values.empty else float("nan"),
+            "p25_popularity": float(values.quantile(0.25)) if not values.empty else float("nan"),
+            "p75_popularity": float(values.quantile(0.75)) if not values.empty else float("nan"),
+            "p90_popularity": float(values.quantile(0.90)) if not values.empty else float("nan"),
         })
     return pd.DataFrame(rows)
+
+
+def popularity_cohort_distribution(data: pd.DataFrame) -> pd.DataFrame:
+    """Return observation-level popularity scores for cumulative rank cohorts.
+
+    Top 10 is contained within Top 20, and both are contained within Top 50.
+    Each eligible chart observation is therefore intentionally repeated across
+    the cohorts it belongs to; use this output for within-cohort distributions,
+    not as a disjoint breakdown.
+    """
+    _require(data, {"position", "popularity"})
+    pieces = []
+    for label, ceiling in [("Top 10", 10), ("Top 20", 20), ("Top 50", 50)]:
+        rows = data.loc[data["position"].between(1, ceiling), ["popularity"]].copy()
+        rows["popularity"] = pd.to_numeric(rows["popularity"], errors="coerce")
+        rows = rows.dropna(subset=["popularity"])
+        rows["cohort"] = label
+        pieces.append(rows)
+    return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame(columns=["popularity", "cohort"])
 
 
 def popularity_stability_summary(data: pd.DataFrame) -> tuple[pd.DataFrame, float | None]:

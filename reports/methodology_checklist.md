@@ -42,7 +42,7 @@ Use this checklist to confirm which requested analyses are implemented and what 
 ## Popularity score analytics
 
 - [x] Popularity versus rank correlation and scatterplot when popularity is available (`popularity_rank_summary`, Popularity page).
-- [x] Popularity distribution within cumulative Top 10, Top 20, and Top 50 cohorts (`popularity_by_rank_cohort`, Popularity page).
+- [x] Popularity distributions within cumulative Top 10, Top 20, and Top 50 cohorts using box plots with outliers and P10/P25/P50/P75/P90 summaries (`popularity_cohort_distribution`, `popularity_by_rank_cohort`, Popularity page). Cohorts overlap by design; the same observation appears in each applicable group.
 - [x] Track-level popularity stability versus rank volatility using per-track sample standard deviations (`popularity_stability_summary`, Popularity page). Correlation is shown only when estimable.
 - [ ] Popularity score provenance and timestamp: **Unavailable in supplied fields/documentation**. Treat popularity as a source-provided score; do not claim it is synchronized to the chart date.
 

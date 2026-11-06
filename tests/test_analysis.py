@@ -11,6 +11,7 @@ from src.analysis import (
     daily_summary,
     filter_chart_data,
     popularity_by_rank_cohort,
+    popularity_cohort_distribution,
     popularity_stability_summary,
     rank_movement,
     song_kpis,
@@ -176,6 +177,11 @@ def test_daily_rank_distribution_and_popularity_cohorts():
     assert distribution["observations"].tolist() == [10, 10, 10, 10, 10]
     cohorts = popularity_by_rank_cohort(data)
     assert cohorts["observations"].tolist() == [10, 20, 50]
+    assert cohorts.loc[0, "p25_popularity"] == 3.25
+    assert cohorts.loc[0, "p75_popularity"] == 7.75
+    distribution = popularity_cohort_distribution(data)
+    assert distribution.groupby("cohort").size().tolist() == [10, 20, 50]
+    assert distribution.groupby("cohort")["popularity"].max().tolist() == [10, 20, 50]
 
 
 def test_popularity_stability_summary_returns_track_level_results():
