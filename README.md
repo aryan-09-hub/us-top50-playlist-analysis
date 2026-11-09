@@ -16,7 +16,7 @@ The initial data inspection found 27,800 rows and 10 columns in the supplied CSV
 ```text
 .
 ├── app.py
-├── .streamlit/config.toml   # Light theme and project colors
+├── .streamlit/config.toml   # Dark obsidian and emerald theme
 ├── data/
 │   ├── raw/                 # Original input data; excluded from Git
 │   └── processed/           # Cleaned outputs; excluded from Git
@@ -33,7 +33,7 @@ The initial data inspection found 27,800 rows and 10 columns in the supplied CSV
 └── README.md
 ```
 
-The supplied CSV was copied to `data/raw/Atlantic_United_States.csv`; the original file in the project root is unchanged. The default path is configured in `src/data_cleaning.py`. To use another CSV, set `PLAYLIST_DATA_PATH` to its path or pass a path to `load_dataset()` / `load_and_clean()`. The full methodology audit and item-by-item implementation checklist is in [`reports/methodology_checklist.md`](reports/methodology_checklist.md).
+The preferred local dataset path is `data/raw/Atlantic_United_States.csv`; the original root-level file is unchanged. If that path is absent, the loader falls back to the tracked root-level `Atlantic_United_States.csv`. To use another CSV, set `PLAYLIST_DATA_PATH` to its path or pass a path to `load_dataset()` / `load_and_clean()`. The full methodology audit and item-by-item implementation checklist is in [`reports/methodology_checklist.md`](reports/methodology_checklist.md).
 
 ## Setup (Windows PowerShell)
 
@@ -61,7 +61,7 @@ If PowerShell blocks activation, use the environment's Python directly:
 4. Select the `.venv` Python kernel in the notebook toolbar. If prompted, choose **Python Environments** and select `.venv\Scripts\python.exe`.
 5. Run cells individually with **Run Cell**, or choose **Run All**.
 
-The notebook uses the default `data/raw/` path. The `ipykernel` dependency lets VS Code run notebook cells in the selected virtual environment; a separate JupyterLab window is not needed.
+The notebook uses the default `data/raw/` path, with the same root-file fallback as the dashboard. The `ipykernel` dependency lets VS Code run notebook cells in the selected virtual environment; a separate JupyterLab window is not needed.
 
 ## Run tests
 
@@ -88,6 +88,6 @@ streamlit run app.py
 
 For Streamlit Community Cloud, push the project to GitHub, open your Community Cloud workspace, choose **Create app**, and select the repository, branch, and `app.py` entrypoint. Keep `requirements.txt` in the repository root and `.streamlit/config.toml` in place. Follow the [official deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
 
-The app also needs the CSV at runtime. Raw and processed data are excluded from Git, so the cloud app will not find the local CSV until you provide it through a deployment method you are allowed to use. Only add the dataset to a repository if you have permission to distribute it there. The local `PLAYLIST_DATA_PATH` setting does not upload or mount a file in the cloud environment.
+The app needs the CSV at runtime. This checkout currently tracks `Atlantic_United_States.csv` at the repository root, so a clone can use the loader fallback if that file remains in the deployed branch. Confirm you have permission to redistribute the dataset before pushing or deploying it. If you remove it from the repository, provide the CSV through an authorized deployment method and configure its runtime path; a local `PLAYLIST_DATA_PATH` setting does not upload or mount a file in the cloud environment.
 
 Keep analysis code in `src/`, exploration in `notebooks/`, generated data in `data/processed/`, and written findings in `reports/`. Do not commit private or large source datasets unless the repository explicitly requires them.

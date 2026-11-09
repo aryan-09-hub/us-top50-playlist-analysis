@@ -18,6 +18,8 @@ def song_kpis(data: pd.DataFrame) -> pd.DataFrame:
 
     Track identity combines artist and title. Volatility uses sample standard deviation
     standard deviation of observed ranks; lower values indicate steadier ranks.
+    Volatility remains missing for a one-observation track because spread cannot
+    be estimated from a single value.
     """
     _require(data, {"date", "song", "artist", "position"})
     if data.empty:
@@ -34,15 +36,20 @@ def song_kpis(data: pd.DataFrame) -> pd.DataFrame:
     if "duration_minutes" in data:
         aggregations["average_duration_minutes"] = ("duration_minutes", "mean")
     result = data.groupby(["song", "artist"], dropna=False).agg(**aggregations).reset_index()
-    result["rank_volatility"] = result["rank_volatility"].fillna(0.0)
-    if "popularity_volatility" in result:
-        result["popularity_volatility"] = result["popularity_volatility"].fillna(0.0)
     return result.sort_values(["days_on_chart", "best_rank"], ascending=[False, True]).reset_index(drop=True)
 
 
 def artist_leaderboard(data: pd.DataFrame) -> pd.DataFrame:
-    """Summarize artist chart appearances and average rank."""
+    """Summarize credited performers, assigning collab rows to each performer.
+
+    Each artist on a collaboration receives one chart appearance and the song
+    credit. Consequently, appearance totals across artists can exceed chart rows.
+    """
     _require(data, {"artist", "position"})
+    work = data.copy()
+    work["_credited_artist"] = work["artist"].map(split_artist_credit)
+    work = work.explode("_credited_artist", ignore_index=True).dropna(subset=["_credited_artist"])
+    work["artist"] = work.pop("_credited_artist")
     aggregations = {
         "chart_appearances": ("position", "size"),
         "average_rank": ("position", "mean"),
@@ -52,7 +59,7 @@ def artist_leaderboard(data: pd.DataFrame) -> pd.DataFrame:
         aggregations["unique_songs"] = ("song", "nunique")
     if "date" in data:
         aggregations["days_present"] = ("date", "nunique")
-    return data.groupby("artist", dropna=False).agg(**aggregations).sort_values(
+    return work.groupby("artist", dropna=False).agg(**aggregations).sort_values(
         ["chart_appearances", "best_rank"], ascending=[False, True]
     ).reset_index()
 
@@ -120,6 +127,39 @@ def category_summary(data: pd.DataFrame, category: str, value: str = "position")
         .reset_index()
         .sort_values("observations", ascending=False)
     )
+
+
+def explicit_content_share(data: pd.DataFrame) -> dict[str, int | float | None]:
+    """Summarize explicit chart-observation share among known explicit flags.
+
+    Unknown or missing values are excluded from the denominator. This measures
+    playlist-row share, not unique-song share or listener exposure.
+    """
+    if "is_explicit" not in data.columns:
+        return {
+            "explicit_observations": 0,
+            "known_observations": 0,
+            "unknown_observations": 0,
+            "explicit_share_pct": None,
+        }
+
+    values = data["is_explicit"]
+    if not pd.api.types.is_bool_dtype(values.dtype):
+        normalized = values.astype("string").str.strip().str.casefold()
+        values = normalized.map({
+            "true": True, "1": True, "yes": True, "y": True,
+            "false": False, "0": False, "no": False, "n": False,
+        }).astype("boolean")
+
+    known = values.dropna()
+    explicit = int(known.sum()) if len(known) else 0
+    denominator = int(len(known))
+    return {
+        "explicit_observations": explicit,
+        "known_observations": denominator,
+        "unknown_observations": int(len(values) - denominator),
+        "explicit_share_pct": explicit / denominator * 100 if denominator else None,
+    }
 
 
 def daily_summary(data: pd.DataFrame) -> pd.DataFrame:

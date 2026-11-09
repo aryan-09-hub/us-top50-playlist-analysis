@@ -9,6 +9,7 @@ from src.analysis import (
     daily_chart_transitions,
     daily_rank_distribution,
     daily_summary,
+    explicit_content_share,
     filter_chart_data,
     popularity_by_rank_cohort,
     popularity_cohort_distribution,
@@ -36,6 +37,16 @@ def test_song_kpis_use_artist_and_title_and_calculate_metrics():
     assert result.loc["Artist B", "days_on_chart"] == 1
 
 
+def test_single_observation_rank_volatility_is_unavailable():
+    result = song_kpis(pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01"]),
+        "song": ["Track"], "artist": ["Artist"], "position": [8],
+        "popularity": [75],
+    }))
+    assert pd.isna(result.loc[0, "rank_volatility"])
+    assert pd.isna(result.loc[0, "popularity_volatility"])
+
+
 def test_artist_leaderboard_counts_chart_appearances():
     result = artist_leaderboard(
         pd.DataFrame({
@@ -48,6 +59,45 @@ def test_artist_leaderboard_counts_chart_appearances():
     assert result.iloc[0]["chart_appearances"] == 2
     assert result.iloc[0]["unique_songs"] == 2
     assert result.iloc[0]["days_present"] == 2
+
+
+def test_artist_leaderboard_credits_songs_and_appearances_to_each_collaborator():
+    result = artist_leaderboard(pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+        "artist": ["Artist A & Artist B", "Artist A"],
+        "song": ["Collaboration", "Solo track"],
+        "position": [4, 8],
+    })).set_index("artist")
+    assert result.loc["Artist A", "chart_appearances"] == 2
+    assert result.loc["Artist A", "unique_songs"] == 2
+    assert result.loc["Artist B", "chart_appearances"] == 1
+    assert result.loc["Artist B", "unique_songs"] == 1
+
+
+def test_explicit_content_share_uses_known_chart_observations_only():
+    result = explicit_content_share(pd.DataFrame({"is_explicit": [True, False, True, None]}))
+    assert result == {
+        "explicit_observations": 2,
+        "known_observations": 3,
+        "unknown_observations": 1,
+        "explicit_share_pct": pytest.approx(200 / 3),
+    }
+
+
+def test_explicit_content_share_handles_missing_field_and_all_unknown_values():
+    assert explicit_content_share(pd.DataFrame({"position": [1]}))["explicit_share_pct"] is None
+    result = explicit_content_share(pd.DataFrame({"is_explicit": [None, pd.NA]}))
+    assert result["known_observations"] == 0
+    assert result["unknown_observations"] == 2
+    assert result["explicit_share_pct"] is None
+
+
+def test_explicit_content_share_parses_supported_boolean_strings():
+    result = explicit_content_share(pd.DataFrame({"is_explicit": ["YES", "no", "unknown"]}))
+    assert result["explicit_observations"] == 1
+    assert result["known_observations"] == 2
+    assert result["unknown_observations"] == 1
+    assert result["explicit_share_pct"] == 50
 
 
 def test_artist_dominance_splits_collaborations_and_conserves_chart_slots():

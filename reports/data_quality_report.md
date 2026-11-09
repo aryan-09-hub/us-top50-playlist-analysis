@@ -6,7 +6,7 @@
 
 - **File:** `data/raw/Atlantic_United_States.csv`
 - **Dataset owner/source:** To be confirmed
-- **Inspection date:** 2026-10-13
+- **Inspection date:** 2026-11-09
 - **Rows / columns:** 27,800 / 10
 - **Date coverage:** 2024-05-18 to 2025-11-27 (555 distinct dates)
 
@@ -29,10 +29,14 @@
 
 - Missing values: none detected in the inspected source.
 - Exact duplicate rows: 10. These are dropped from the in-memory analysis copy.
+- Duplicate song–artist–date keys: 48 in the raw file. After dropping 10 exact duplicate rows, 38 non-identical duplicate-key rows remain; they occur on the malformed 2025-03-01 snapshot, which is excluded from analysis.
 - After exact duplicate removal, 2025-03-01 contains 90 rows covering 50 ranks; 40 rank positions have an extra conflicting row. This date is excluded from ranking analysis.
 - Four dates are absent from the otherwise daily date sequence.
 - Popularity, duration, album type, and cover URL can vary for a song over time. Treat these as observation-level metadata until source semantics are confirmed.
 - Use both `song` and `artist` for track identity. The same title may belong to different artists.
+- Current optional-field checks enforce popularity 0–100, duration 1 ms–1 hour, positive whole-number release track counts, the observed allowed album types (`album`, `single`, `compilation`), and recognized boolean values for `is_explicit`. Invalid optional measures are set missing in the in-memory analysis copy and noted in validation output.
+- One artist credit spelling variation differs only by capitalization (`Charli XCX` / `Charli xcx`); the cleaned copy uses the most common spelling. No verified source alias map is available to resolve names that differ beyond case and whitespace.
+- `album_type` describes the release. The source does not indicate whether a specific album track was separately issued as a single.
 
 ## Cleaning decisions
 

@@ -7,7 +7,8 @@ Use this checklist to confirm which requested analyses are implemented and what 
 - [x] Load daily playlist snapshots from the configured CSV path (`src/data_cleaning.py`, `app.py`).
 - [x] Validate chart positions against 1–50 and report malformed dates, missing values, and exact duplicates (`validate_dataset`).
 - [x] Check duplicate song–artist–date keys; exclude a chart date from analysis when rank coverage or track-date integrity is invalid (`chart_date_quality`, `analysis_ready_data`).
-- [x] Normalize leading/trailing and repeated whitespace in song, artist, and album-type fields on a copy. Artist spellings/casing and aliases are not inferred or merged.
+- [x] Normalize leading/trailing and repeated whitespace in song, artist, and album-type fields on a copy. Exact artist case/whitespace variants are standardized to the most frequent source spelling; unverified aliases are not merged.
+- [x] Validate available optional values: popularity 0–100, positive duration (maximum one hour), positive whole-number `total_tracks`, known album-type labels, and recognized explicit flags. Invalid optional measures are missing in the analysis copy and reported in validation notes.
 
 ## Feature engineering and KPIs
 
@@ -15,8 +16,10 @@ Use this checklist to confirm which requested analyses are implemented and what 
 - [x] Average rank = mean observed position (`song_kpis`).
 - [x] Best rank = minimum observed position (`song_kpis`).
 - [x] Rank volatility = sample standard deviation of observed positions (`song_kpis`).
+- [x] Rank volatility is unavailable for one-observation tracks; a sample standard deviation is not defined for one value.
 - [x] Popularity trend = daily mean source score and trailing mean over up to seven observed snapshots (`daily_summary`, Popularity page). This is smoothing, not a forecast.
 - [x] Duration minutes = `duration_ms / 60,000` on the cleaned copy. No source fields are overwritten.
+- [x] Explicit-content share = explicit chart observations divided by observations with a known explicit flag (`explicit_content_share`, Overview KPI); missing or unrecognized flags are excluded from the denominator.
 
 ## Playlist ranking analysis
 
@@ -34,10 +37,11 @@ Use this checklist to confirm which requested analyses are implemented and what 
 
 ## Artist performance
 
-- [x] Unique song credits per artist when song is available (`artist_leaderboard`).
-- [x] Total chart-row appearances and distinct observed dates per artist (`artist_leaderboard`). “Total days” is distinct dates, not summed continuous tenure.
+- [x] Unique song credits per credited performer when song is available (`artist_leaderboard`); supported ` & ` collaboration credits are attributed to each named artist.
+- [x] Credited chart appearances and distinct observed dates per performer (`artist_leaderboard`). A collaboration row counts once for every named performer, so appearance totals can exceed playlist rows. “Total days” is distinct dates, not summed continuous tenure.
 - [x] Artist dominance over time is shown as daily share of eligible chart slots, with multiple artists comparable in one view (`artist_dominance_over_time`, Artists page). Collaboration slots are divided equally among names split on ` & `; the known band name `Earth, Wind & Fire` is preserved. Per-date shares sum to 100% when all chart rows are included.
-- [x] The artist leaderboard still reports original source-credit strings as credited rows; artist aliases and spelling variants are not inferred or merged.
+- [x] Case/whitespace-only artist spelling variants are standardized to the most frequent source spelling in the cleaned copy and used by the leaderboard and dominance view.
+- [ ] Artist aliases and genuine spelling variants: **Require a verified alias mapping source**. Names that differ beyond case/whitespace are not guessed or merged.
 
 ## Popularity score analytics
 
@@ -48,8 +52,9 @@ Use this checklist to confirm which requested analyses are implemented and what 
 
 ## Content attributes
 
-- [x] Explicit versus non-explicit rank summaries and distributions; popularity summary when available (Attributes page).
-- [x] Album-type rank comparisons when album type exists (Attributes page). This supports release-type comparison but may not distinguish single releases from single tracks within albums.
+- [x] Explicit versus non-explicit rank summaries and distributions; popularity summary when available (Attributes page), plus explicit observation share among known flags (Overview KPI). This is not unique-song share or listener share.
+- [x] Album-type rank comparisons when album type exists (Attributes page), explicitly labeled as release-level type.
+- [ ] Single release versus a single track taken from an album: **Not derivable from the supplied fields**. The dataset has no track release-role field; the dashboard states this limitation instead of inferring it from `album_type`.
 - [x] Track duration versus rank, and versus popularity when available (Attributes page).
 - [x] Release `total_tracks` versus popularity and rank (Attributes page).
 

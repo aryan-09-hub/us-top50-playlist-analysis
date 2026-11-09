@@ -18,6 +18,7 @@ analysis = importlib.reload(analysis)
 data_cleaning = importlib.reload(data_cleaning)
 artist_leaderboard = analysis.artist_leaderboard
 artist_dominance_over_time = analysis.artist_dominance_over_time
+explicit_content_share = analysis.explicit_content_share
 chart_transition_window = analysis.chart_transition_window
 daily_rank_distribution = analysis.daily_rank_distribution
 daily_summary = analysis.daily_summary
@@ -41,62 +42,64 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-INK = "#E1E2EB"
+INK = "#DFE2EF"
 MUTED = "#94A3B8"
-TEAL = "#00DCE6"
-CORAL = "#FF2A85"
-GOLD = "#FFB800"
-PALETTE = [TEAL, CORAL, GOLD, "#7C3AED", "#10B981", "#FF8A5B", "#9AA7B8"]
+TEAL = "#10B981"
+CORAL = "#EC4899"
+GOLD = "#D0BCFF"
+PALETTE = [TEAL, "#8B5CF6", CORAL, "#38BDF8", GOLD, "#F43F5E", "#9AA7B8"]
 
 st.markdown(
     """
     <style>
-      :root { --ink:#E1E2EB; --muted:#94A3B8; --teal:#00DCE6; --line:#252B38; --panel:#181C24; --dock:#12151B; }
-      html, body, [class*="css"] { font-family: 'Segoe UI', Arial, sans-serif; }
-      .stApp { background:#0B0D11; color:var(--ink); }
-      [data-testid="stHeader"] { background:rgba(11,13,17,.94); }
-      [data-testid="stSidebar"] { background:#101319; border-right:1px solid #252B38; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap');
+      :root { --ink:#DFE2EF; --muted:#94A3B8; --emerald:#10B981; --violet:#8B5CF6; --line:rgba(255,255,255,.09); --panel:#181B25; --canvas:#0F131C; }
+      html, body, [class*="css"] { font-family:'Inter', 'Segoe UI', Arial, sans-serif; }
+      .stApp { background:radial-gradient(ellipse at 86% 0%, rgba(16,185,129,.07), transparent 32%), #0F131C; color:var(--ink); }
+      [data-testid="stHeader"] { background:rgba(15,19,28,.92); }
+      [data-testid="stSidebar"] { background:#111827; border-right:1px solid var(--line); }
       [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color:var(--ink); }
       .block-container { padding-top:2rem; padding-bottom:2.5rem; max-width:1600px; }
-      h1, h2, h3 { font-family:'Segoe UI', Arial, sans-serif; letter-spacing:-.025em; color:var(--ink); }
-      h1 { font-size:2rem !important; font-weight:750 !important; }
-      h2 { font-size:1.3rem !important; font-weight:700 !important; }
-      h3 { font-size:1.02rem !important; font-weight:700 !important; }
-      [data-testid="stMetric"] { background:#181C24; border:1px solid #2E3646; border-top-color:#3A494B; border-radius:8px; padding:14px 17px; box-shadow:none; }
-      [data-testid="stMetricLabel"] { color:#94A3B8; font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; }
-      [data-testid="stMetricValue"] { color:#F8FAFC; font-family:Consolas, 'Courier New', monospace; font-size:1.55rem; font-weight:700; }
-      [data-testid="stPlotlyChart"] { background:#12151B; border:1px solid #252B38; border-radius:8px; padding:5px 8px 0; box-shadow:none; }
-      [data-testid="stDataFrame"] { background:#12151B; border:1px solid #252B38; border-radius:8px; overflow:hidden; }
-      [data-testid="stDateInput"] input, [data-baseweb="select"] > div { background:#12151B !important; color:#E1E2EB !important; border-color:#3A494B !important; }
-      [data-testid="stWidgetLabel"] p, .stApp label { color:#B9CACB !important; }
+      h1, h2, h3 { font-family:'Sora', 'Inter', sans-serif; letter-spacing:-.025em; color:var(--ink); }
+      h1 { font-size:2rem !important; font-weight:700 !important; }
+      h2 { font-size:1.3rem !important; font-weight:650 !important; }
+      h3 { font-size:1.02rem !important; font-weight:650 !important; }
+      [data-testid="stMetric"] { background:linear-gradient(145deg, rgba(38,42,52,.92), rgba(24,27,37,.92)); border:1px solid var(--line); border-top-color:rgba(78,222,163,.34); border-radius:10px; padding:15px 17px; box-shadow:0 8px 25px rgba(0,0,0,.16); }
+      [data-testid="stMetricLabel"] { color:#A8B0C3; font-family:'JetBrains Mono', monospace; font-size:.68rem; text-transform:uppercase; letter-spacing:.075em; }
+      [data-testid="stMetricValue"] { color:#F4F6FC; font-family:'JetBrains Mono', Consolas, monospace; font-size:1.5rem; font-weight:650; font-variant-numeric:tabular-nums; }
+      [data-testid="stPlotlyChart"] { background:rgba(24,27,37,.72); border:1px solid var(--line); border-radius:10px; padding:6px 9px 0; box-shadow:0 8px 26px rgba(0,0,0,.12); }
+      [data-testid="stDataFrame"] { background:#181B25; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+      [data-testid="stDateInput"] input, [data-baseweb="select"] > div { background:#0E1420 !important; color:#DFE2EF !important; border-color:rgba(255,255,255,.13) !important; }
+      [data-testid="stWidgetLabel"] p, .stApp label { color:#C0C7D6 !important; }
       [data-testid="stCaptionContainer"] { color:#94A3B8; }
-      [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color:#B9CACB; }
-      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label { padding:8px 10px; margin:2px 0; border:1px solid transparent; border-radius:6px; transition:background .15s ease,border-color .15s ease; }
-      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:hover { background:#181C24; border-color:#252B38; }
-      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) { background:#1D2026; border-color:#2E3646; }
-      [data-testid="stSidebar"] input[type="radio"] { accent-color:#00DCE6; }
-      [data-testid="stSidebar"] hr { border-color:#252B38; }
-      [data-testid="stSegmentedControl"] { background:#12151B; border:1px solid #252B38; border-radius:6px; padding:4px; }
-      [data-testid="stSegmentedControl"] button { color:#B9CACB; border-radius:4px; }
-      [data-testid="stSegmentedControl"] button[aria-pressed="true"] { background:#00DCE6; color:#0B0D11; font-weight:700; }
-      [data-testid="stTabs"] [role="tablist"] { gap:5px; border-bottom:1px solid #252B38; }
+      [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color:#C0C7D6; }
+      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label { padding:9px 11px; margin:3px 0; border:1px solid transparent; border-radius:7px; transition:background .15s ease,border-color .15s ease; }
+      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:hover { background:#1C1F29; border-color:var(--line); }
+      [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) { background:rgba(16,185,129,.11); border-color:rgba(16,185,129,.25); }
+      [data-testid="stSidebar"] input[type="radio"] { accent-color:#10B981; }
+      [data-testid="stSidebar"] hr { border-color:var(--line); }
+      [data-testid="stSegmentedControl"] { background:#0E1420; border:1px solid var(--line); border-radius:7px; padding:4px; }
+      [data-testid="stSegmentedControl"] button { color:#C0C7D6; border-radius:5px; }
+      [data-testid="stSegmentedControl"] button[aria-pressed="true"] { background:#10B981; color:#07130F; font-weight:700; }
+      [data-testid="stTabs"] [role="tablist"] { gap:5px; border-bottom:1px solid var(--line); }
       [data-testid="stTabs"] button[role="tab"] { color:#94A3B8; }
-      [data-testid="stTabs"] button[role="tab"][aria-selected="true"] { color:#00DCE6; border-bottom-color:#00DCE6; }
+      [data-testid="stTabs"] button[role="tab"][aria-selected="true"] { color:#4EDEA3; border-bottom-color:#10B981; }
       .st-key-filter_drawer_layout > [data-testid="stLayoutWrapper"] > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child { flex:0 0 300px !important; min-width:300px !important; max-width:300px !important; }
       .st-key-filter_drawer_layout > [data-testid="stLayoutWrapper"] > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child { flex:1 1 0 !important; min-width:0 !important; max-width:none !important; }
-      div[data-testid="stAlert"] { border-radius:6px; background:#181C24; }
-      .hero { background:#12151B; border:1px solid #252B38; border-left:3px solid #00DCE6; color:#F8FAFC; border-radius:8px; padding:19px 23px; margin:0 0 12px; box-shadow:none; }
+      div[data-testid="stAlert"] { border-radius:8px; background:#181B25; border:1px solid var(--line); }
+      .hero { background:linear-gradient(125deg, rgba(24,27,37,.96), rgba(17,24,39,.90)); border:1px solid var(--line); border-left:3px solid #10B981; color:#F4F6FC; border-radius:10px; padding:21px 24px; margin:0 0 14px; box-shadow:0 12px 32px rgba(0,0,0,.16); }
       .hero p { max-width:100%; overflow-wrap:anywhere; line-height:1.45; margin:0; color:#B9CACB; font-size:.91rem; }
-      .hero-eyebrow { color:#00DCE6; font-family:Consolas, monospace; font-size:.65rem; letter-spacing:.12em; text-transform:uppercase; font-weight:700; margin-bottom:5px; }
+      .hero-eyebrow { color:#4EDEA3; font-family:'JetBrains Mono', Consolas, monospace; font-size:.65rem; letter-spacing:.12em; text-transform:uppercase; font-weight:700; margin-bottom:5px; }
       .hero h1 { color:#F8FAFC !important; margin:0 0 4px !important; }
-      .hero-meta { margin-top:11px; color:#94A3B8; font: .72rem Consolas, monospace; }
-      .section-kicker { color:#00DCE6; text-transform:uppercase; letter-spacing:.12em; font:700 .64rem Consolas, monospace; margin:8px 0 3px; }
+      .hero-meta { margin-top:11px; color:#A0A9BC; font: .72rem 'JetBrains Mono', Consolas, monospace; }
+      .section-kicker { color:#4EDEA3; text-transform:uppercase; letter-spacing:.12em; font:700 .64rem 'JetBrains Mono', Consolas, monospace; margin:8px 0 3px; }
       .section-note { color:#94A3B8; font-size:.82rem; margin-top:-7px; margin-bottom:12px; }
       .small-note { color:#94A3B8; font-size:.74rem; }
-      .stButton button { border-radius:5px; border-color:#3A494B; }
-      .stButton button[kind="primary"] { background:#00DCE6; color:#0B0D11; border-color:#00DCE6; }
+      .stButton button { border-radius:6px; border-color:rgba(255,255,255,.16); transition:all .16s ease; }
+      .stButton button:hover { border-color:#8B5CF6; color:#DFE2EF; box-shadow:0 0 0 2px rgba(139,92,246,.12); }
+      .stButton button[kind="primary"] { background:#10B981; color:#07130F; border-color:#10B981; font-weight:700; }
       .stRadio [role="radiogroup"] { gap:8px; }
-      a { color:#00DCE6; }
+      a { color:#4EDEA3; }
       @media (max-width: 760px) {
         .block-container { padding-left:.8rem; padding-right:.8rem; }
         .stHorizontalBlock { flex-wrap:wrap; gap:.55rem; }
@@ -149,13 +152,13 @@ def base_chart(fig, height: int = 370):
         margin=dict(l=16, r=18, t=48, b=16),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Segoe UI, Arial, sans-serif", color=INK, size=11),
+        font=dict(family="Inter, Segoe UI, Arial, sans-serif", color=INK, size=11),
         title=dict(x=0.02, xanchor="left", font=dict(size=14, color=INK)),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, title=None),
-        hoverlabel=dict(bgcolor="#1F242F", bordercolor="#3A494B", font_color="#F8FAFC", font_size=12),
+        hoverlabel=dict(bgcolor="#262A34", bordercolor="#3C4A42", font_color="#F4F6FC", font_size=12),
     )
-    fig.update_xaxes(showgrid=False, linecolor="#252B38", zeroline=False, tickfont_color="#B9CACB")
-    fig.update_yaxes(gridcolor="#252B38", zeroline=False, tickfont_color="#B9CACB")
+    fig.update_xaxes(showgrid=False, linecolor="#303640", zeroline=False, tickfont_color="#BBC4D5")
+    fig.update_yaxes(gridcolor="rgba(255,255,255,.08)", zeroline=False, tickfont_color="#BBC4D5")
     return fig
 
 
@@ -358,11 +361,23 @@ with main_column:
         unique_tracks = filtered[["song", "artist"]].drop_duplicates().shape[0]
         avg_rank = filtered["position"].mean()
         avg_pop = filtered["popularity"].mean() if "popularity" in filtered else float("nan")
-        k1, k2, k3, k4 = st.columns(4)
+        explicit_share = explicit_content_share(filtered)
+        k1, k2, k3 = st.columns(3)
         k1.metric("Chart observations", f"{len(filtered):,}")
         k2.metric("Songs represented", f"{unique_tracks:,}")
-        k3.metric("Average chart position", f"{avg_rank:.1f}" if pd.notna(avg_rank) else "—", help="A lower average position means a higher typical chart placement.")
+        k3.metric("Average rank", f"{avg_rank:.1f}" if pd.notna(avg_rank) else "—", help="A lower average position means a higher typical chart placement.")
+        k4, k5 = st.columns(2)
         k4.metric("Average popularity", f"{avg_pop:.1f} / 100" if pd.notna(avg_pop) else "Unavailable", help="Popularity is supplied in the dataset; its timestamp and methodology are undocumented.")
+        explicit_pct = explicit_share["explicit_share_pct"]
+        explicit_label = f"{explicit_pct:.1f}%" if explicit_pct is not None else "Unavailable"
+        k5.metric(
+            "Explicit observation share", explicit_label,
+            help=(
+                f"{explicit_share['explicit_observations']:,} explicit chart rows out of "
+                f"{explicit_share['known_observations']:,} rows with a known explicit flag. "
+                "Unknown flags are excluded. This is observation share, not unique-song share or listener share."
+            ),
+        )
 
         st.write("")
         c1, c2 = st.columns([1.55, 1])
@@ -381,10 +396,10 @@ with main_column:
                 rank_axis(fig)
                 chart(fig, 410)
         with c2:
-            section("Artist presence", "Most frequent credited artist entries in the filtered chart observations.")
+            section("Artist presence", "Most credited performer appearances; collaborations count for each named artist.")
             board = artist_leaderboard(filtered).head(10).sort_values("chart_appearances")
             fig = px.bar(board, x="chart_appearances", y="artist", orientation="h", color_discrete_sequence=[TEAL],
-                         labels={"chart_appearances": "Chart observations", "artist": "Artist"}, text="chart_appearances")
+                         labels={"chart_appearances": "Credited appearances", "artist": "Artist"}, text="chart_appearances")
             fig.update_traces(textposition="outside", cliponaxis=False)
             chart(fig, 410)
 
@@ -596,7 +611,8 @@ with main_column:
         a.metric("Observed days", f"{int(track_metrics['days_on_chart']):,}")
         b.metric("Best rank", f"#{int(track_metrics['best_rank'])}")
         c.metric("Average rank", f"{track_metrics['average_rank']:.1f}")
-        d.metric("Rank volatility", f"{track_metrics['rank_volatility']:.1f}", help="Standard deviation of observed ranks; lower values mean less spread in rank.")
+        rank_volatility = track_metrics["rank_volatility"]
+        d.metric("Rank volatility", f"{rank_volatility:.1f}" if pd.notna(rank_volatility) else "—", help="Sample standard deviation of observed ranks. Unavailable when the track has fewer than two observations.")
         if "popularity" in track_data:
             popularity_trend = song_popularity_trend(track_data)
             section(
@@ -661,28 +677,30 @@ with main_column:
                 empty_state("Popularity is unavailable; the track popularity leaderboard is skipped.")
 
     elif view == "Artists":
-        section("Artist leaderboard", "Includes chart-row appearances, distinct credited songs, and distinct observed dates. Multi-artist credits remain as supplied.", "Artist detail")
+        section("Artist leaderboard", "Each collaboration appearance and song is credited to every named performer. Totals across artists can exceed playlist rows; aliases beyond case/whitespace variants are not merged.", "Artist detail")
         leaderboard = artist_leaderboard(filtered)
         c1, c2 = st.columns([1.2, 1])
         with c1:
             top = leaderboard.head(15).sort_values("chart_appearances")
             fig = px.bar(top, x="chart_appearances", y="artist", orientation="h", color="average_rank",
                          color_continuous_scale=[TEAL, GOLD, CORAL],
-                         labels={"chart_appearances": "Chart observations", "artist": "Artist", "average_rank": "Avg. rank"},
+                         labels={"chart_appearances": "Credited chart appearances", "artist": "Artist", "average_rank": "Avg. rank"},
                          hover_data={"best_rank": True, "average_rank": ":.1f"})
             fig.update_yaxes(categoryorder="total ascending")
             chart(fig, 510)
         with c2:
             artist_choice = st.selectbox("Artist history", leaderboard["artist"].tolist())
-            artist_data = filtered[filtered["artist"] == artist_choice]
+            artist_data = filtered[
+                filtered["artist"].map(lambda credit: artist_choice in analysis.split_artist_credit(credit))
+            ]
             artist_daily = artist_data.groupby("date").agg(chart_entries=("position", "size"), average_rank=("position", "mean")).reset_index()
             fig = px.line(artist_daily, x="date", y="chart_entries", labels={"date": "Date", "chart_entries": "Songs charting"},
                           color_discrete_sequence=[CORAL], markers=False)
             chart(fig, 330)
-            st.caption("Daily count of this artist’s charting tracks. Multi-artist credits remain grouped as one source entry.")
+            st.caption("Daily appearances include every track credit that names this artist; a collaboration is credited to each named performer.")
         display_columns = [column for column in ["artist", "chart_appearances", "unique_songs", "days_present", "average_rank", "best_rank"] if column in leaderboard]
         st.dataframe(leaderboard.head(50)[display_columns].rename(columns={
-            "artist": "Artist", "chart_appearances": "Chart observations", "unique_songs": "Unique songs",
+            "artist": "Artist", "chart_appearances": "Credited appearances", "unique_songs": "Unique songs",
             "days_present": "Observed days present", "average_rank": "Average rank", "best_rank": "Best rank",
         }), hide_index=True, width="stretch", column_config={"Average rank": st.column_config.NumberColumn(format="%.1f")})
 
@@ -847,7 +865,8 @@ with main_column:
                 rank_axis(fig)
                 chart(fig, 430)
                 counts = filtered["album_type"].value_counts().to_dict()
-                st.caption("Filtered observations by release type: " + " · ".join(f"{kind}: {count:,}" for kind, count in counts.items()))
+                st.caption("Filtered observations by release-level type: " + " · ".join(f"{kind}: {count:,}" for kind, count in counts.items()))
+                st.info("This field describes the release type (single, album, or compilation). The dataset has no track release-role field, so it cannot identify whether a song on an album was also issued as a single.")
         with tab_duration:
             if "duration_ms" not in filtered:
                 empty_state("Track duration is unavailable in this dataset.")
@@ -917,6 +936,9 @@ with main_column:
             - **Average and best rank:** arithmetic mean and minimum of observed chart positions; position 1 is best.
             - **Rank volatility:** standard deviation of observed positions; zero means no variation in the included observations.
             - **Artist presence:** count of chart rows credited to an artist. Combined credits are left intact.
+            - **Artist name normalization:** whitespace and capitalization variants are standardized to the most common spelling in the dataset. Aliases and spelling differences cannot be safely merged without a verified alias map.
+            - **Optional-field checks:** popularity must be 0–100; duration must be positive and no more than one hour; release track counts must be positive whole numbers; album types and explicit flags are checked against supported values. Invalid optional measures are set missing in the analysis copy and listed in validation notes.
+            - **Single versus album track:** `album_type` describes the release, not how an individual track was issued. The source does not provide a track release-role field, so that distinction is unavailable.
             - **Popularity:** source-provided score on a 0–100 scale. Its timestamp and calculation are unknown.
             - **Invalid-date policy:** exact duplicate rows are dropped in memory; any date not containing one unique entry at every rank 1–50 is excluded from analysis and listed above.
             """)

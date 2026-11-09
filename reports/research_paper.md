@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This project describes chart placement, observed chart longevity, artist appearances, and supplied popularity scores in a United States Top 50 playlist dataset. The source contains 27,800 rows from May 18, 2024 through November 27, 2025. After removing 10 exact duplicate rows and excluding the malformed March 1, 2025 snapshot, the analysis uses 27,700 observations across 554 valid chart dates. Songs with long observed runs include “Something in the Orange” by Zach Bryan (535 dates) and “Last Night” by Morgan Wallen (491 dates). Taylor Swift has the most chart-row appearances (2,014). Popularity and rank have a weak negative correlation (r = −0.094), while average ranks differ little between explicit and non-explicit observations. Results are descriptive; the source does not document its chart methodology or popularity-score timing.
+This project describes chart placement, observed chart longevity, artist appearances, and supplied popularity scores in a United States Top 50 playlist dataset. The source contains 27,800 rows from May 18, 2024 through November 27, 2025. After removing 10 exact duplicate rows and excluding the malformed March 1, 2025 snapshot, the analysis uses 27,700 observations across 554 valid chart dates. Songs with long observed runs include “Something in the Orange” by Zach Bryan (535 dates) and “Last Night” by Morgan Wallen (491 dates). Taylor Swift has the most credited artist appearances (2,014). Popularity and rank have a weak negative correlation (r = −0.094), while average ranks differ little between explicit and non-explicit observations. Results are descriptive; the source does not document its chart methodology or popularity-score timing.
 
 ## 1. Problem statement
 
@@ -33,9 +33,10 @@ Track identity is the combination of song title and artist credit because titles
 - **Observed days on chart:** number of distinct valid source dates for a song-artist pair.
 - **Average rank:** arithmetic mean of observed chart positions; lower values indicate stronger typical placement.
 - **Best rank:** minimum observed chart position; position 1 is best.
-- **Rank volatility:** sample standard deviation of the track’s observed positions. It describes spread, not direction.
+- **Rank volatility:** sample standard deviation of the track’s observed positions. It describes spread, not direction, and is unavailable for a track with fewer than two observations.
 - **Popularity trend:** average supplied popularity score across chart observations on each date; the Song explorer also plots one selected song's dated scores and rolling mean across up to seven observed dates. The score capture timestamp is undocumented.
-- **Artist representation:** the leaderboard counts chart-row appearances using source artist-credit strings. A separate artist-dominance time series splits collaboration credits on ` & ` and divides each chart slot equally among the credited names; this measures share of chart slots, not audience share or total streams. The source band name `Earth, Wind & Fire` is kept intact, and aliases are not inferred or merged.
+- **Artist representation:** the leaderboard splits supported ` & ` collaboration credits and gives each named performer the full appearance and song credit. Therefore, artist appearance totals may exceed chart rows. Exact case and whitespace variants within the dataset are standardized to the most common spelling. The separate artist-dominance time series divides each collaboration chart slot equally among the credited names; this measures share of chart slots, not audience share or total streams. The source band name `Earth, Wind & Fire` is kept intact. Aliases and spelling variants beyond case/whitespace are not inferred or merged.
+- **Explicit-content share:** explicit chart rows divided by rows with a known explicit flag. Unknown flags are excluded from the denominator. This is an observation share, not a unique-song share or listener share.
 - **Association:** Pearson correlation is shown for continuous field comparisons. Correlation is descriptive and does not establish causation.
 
 ### 3.4 Exploratory analysis
@@ -54,7 +55,7 @@ These counts measure dates observed in the file, not uninterrupted real-world ch
 
 ### 4.2 Artist performance
 
-Taylor Swift has the most credited chart appearances (2,014), followed by Zach Bryan (1,854), Morgan Wallen (1,666), Sabrina Carpenter (966), and Drake (838). The top 10 artist credits account for approximately 39.6% of the valid chart rows. This share is based on row appearances; it does not assign a fractional credit to each artist on a multi-artist row.
+Taylor Swift has the most credited artist appearances (2,014), followed by Zach Bryan (1,879), Morgan Wallen (1,761), Sabrina Carpenter (966), and Drake (892). The top 10 performers account for approximately 36.5% of 30,860 performer appearances. This denominator exceeds the 27,700 chart rows because each named collaborator receives a full appearance in the leaderboard. The dominance time series instead allocates fractional chart slots.
 
 ### 4.3 Popularity and rank
 
@@ -62,7 +63,7 @@ Mean supplied popularity is 87.7 on the 0–100 scale. Popularity and chart posi
 
 ### 4.4 Explicit status
 
-Non-explicit observations have an average rank of 25.60; explicit observations average 25.39. The difference is approximately 0.21 rank positions, which is small in this dataset. This descriptive comparison does not control for artist, song age, release type, or other factors.
+Explicit tracks account for 13,273 of 27,700 valid chart observations (47.9%); all valid observations have a known explicit flag. Non-explicit observations have an average rank of 25.60; explicit observations average 25.39. The difference is approximately 0.21 rank positions, which is small in this dataset. This descriptive comparison does not control for artist, song age, release type, or other factors.
 
 ### 4.5 Album type
 
@@ -79,7 +80,8 @@ Track duration has a weak negative correlation with rank (r = −0.045). Release
 - March 1, 2025 has rank conflicts and is excluded, so that date cannot support rank conclusions.
 - Four calendar dates are absent from the original source. The chart is therefore not a fully continuous daily record.
 - “Days on chart” is a count of observed dates and does not imply uninterrupted presence.
-- The artist leaderboard preserves source artist-credit strings. The dominance time series splits ` & ` collaborations and allocates each slot equally across names, but may not perfectly resolve all credits; aliases, spelling variants, and other collaboration conventions are not normalized.
+- The artist leaderboard and dominance chart split supported ` & ` collaborations, but use different credit rules: full artist appearance for the leaderboard and fractional slot shares for dominance. Case/whitespace variants are normalized to the most common observed spelling. Aliases and genuine spelling variants beyond case/whitespace, plus collaboration formats other than the supported delimiter, are not resolved.
+- Rank volatility is unavailable for tracks with fewer than two observations because a sample standard deviation cannot be estimated from one value.
 - Metadata can vary for the same song-artist pair. Popularity, duration, album type, track count, and artwork are treated as recorded observation-level values.
 - Chart observations are repeated measurements of songs and are not independent samples. Category comparisons are descriptive, not inferential.
 - Correlations and average ranks may conceal differences in song age, genre, artist, release timing, and exposure.

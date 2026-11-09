@@ -1,5 +1,6 @@
 import pandas as pd
 
+import src.data_cleaning as data_cleaning
 from src.data_cleaning import analysis_ready_data, clean_dataset, validate_dataset
 
 
@@ -72,6 +73,12 @@ def test_analysis_excludes_unparseable_dates_and_out_of_range_ranks():
     assert len(invalid) == 2
 
 
+def test_validation_reports_fractional_rank_values():
+    data = sample_data().iloc[[0]].copy()
+    data["position"] = [1.5]
+    assert any("non-whole-number" in issue for issue in validate_dataset(data))
+
+
 def test_cleaning_standardizes_artist_whitespace_without_changing_case():
     data = sample_data().iloc[[0]].copy()
     data["artist"] = "  arTist   Name  "
@@ -91,3 +98,51 @@ def test_duplicate_song_artist_date_invalidates_snapshot_even_with_unique_ranks(
     ready, invalid = analysis_ready_data(raw, expected_size=2)
     assert ready.empty
     assert invalid.loc[0, "duplicate_track_dates"] == 1
+
+
+def test_optional_field_validation_flags_out_of_range_and_unknown_values():
+    data = sample_data().iloc[[0]].copy()
+    data.loc[:, "popularity"] = 101
+    data.loc[:, "duration_ms"] = -10
+    data["total_tracks"] = [2.5]
+    data.loc[:, "album_type"] = "EP"
+    data["is_explicit"] = ["maybe"]
+
+    issues = validate_dataset(data)
+
+    assert any("popularity" in issue and "valid range" in issue for issue in issues)
+    assert any("duration_ms" in issue and "valid range" in issue for issue in issues)
+    assert any("total_tracks" in issue and "valid range" in issue for issue in issues)
+    assert any("unrecognized value" in issue for issue in issues)
+    assert any("unrecognized boolean" in issue for issue in issues)
+
+    cleaned = clean_dataset(data)
+    assert pd.isna(cleaned.loc[0, "popularity"])
+    assert pd.isna(cleaned.loc[0, "duration_ms"])
+    assert pd.isna(cleaned.loc[0, "total_tracks"])
+    assert cleaned.loc[0, "album_type"] == "ep"  # Preserve unknown categories for review.
+    assert pd.isna(cleaned.loc[0, "is_explicit"])
+
+
+def test_artist_credit_normalization_merges_case_variants_and_preserves_band_name():
+    data = sample_data().iloc[[0]].copy()
+    data["artist"] = "Charli XCX"
+    lower = data.copy()
+    lower["artist"] = "charli xcx"
+    collaboration = data.copy()
+    collaboration["artist"] = "Earth, Wind & Fire & Charli xcx"
+    cleaned = clean_dataset(pd.concat([data, lower, collaboration], ignore_index=True))
+
+    assert "Charli XCX" in cleaned["artist"].tolist()
+    assert "Earth, Wind & Fire & Charli XCX" in cleaned["artist"].tolist()
+
+
+def test_default_dataset_path_falls_back_to_tracked_project_root_csv(monkeypatch):
+    project_root = data_cleaning.PROJECT_ROOT
+    expected_path = project_root / "data" / "raw" / "missing_test_dataset.csv"
+    monkeypatch.setattr(data_cleaning, "PROJECT_ROOT", project_root)
+    monkeypatch.setattr(data_cleaning, "DEFAULT_DATA_PATH", expected_path)
+
+    loaded = data_cleaning.load_dataset(expected_path)
+
+    assert len(loaded) == 27800

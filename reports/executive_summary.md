@@ -1,10 +1,10 @@
-# Executive Summary
+# Executive Summary for Government Stakeholders
 
 ## United States Top 50 Playlist Performance and Song Popularity Trend Analysis
 
 ### Purpose
 
-This project describes how songs rank and persist in the supplied United States Top 50 playlist data, how chart appearances are distributed among artists, and how rank relates to popularity and available track metadata.
+This project describes how songs rank and persist in the supplied United States Top 50 playlist data, how chart appearances are distributed among artists, and how rank relates to popularity and available track metadata. For public-sector readers, these results provide a limited view of visibility within this one playlist dataset; they do not measure government program performance, population-wide listening preferences, total streams, or the full U.S. music market.
 
 ### Dataset and method
 
@@ -13,9 +13,10 @@ The source contains 27,800 rows from May 18, 2024 through November 27, 2025. Ten
 ### Key findings
 
 - **Longest observed run:** “Something in the Orange” by Zach Bryan appears on 535 valid chart dates. “Last Night” by Morgan Wallen follows with 491.
-- **Artist appearances:** Taylor Swift leads with 2,014 credited chart rows, followed by Zach Bryan with 1,854 and Morgan Wallen with 1,666. The top 10 artist credits make up about 39.6% of valid rows.
+- **Artist appearances:** Taylor Swift leads with 2,014 credited appearances, followed by Zach Bryan with 1,879 and Morgan Wallen with 1,761. The top 10 performers account for 36.5% of credited performer appearances (30,860 total); collaboration appearances are credited to every named performer, so this total exceeds the 27,700 playlist rows.
 - **Popularity and rank:** Mean popularity is 87.7/100. Popularity has a weak negative correlation with rank (r = −0.094); the relationship is descriptive and small.
 - **Explicit status:** Average ranks are nearly identical: 25.60 for non-explicit observations and 25.39 for explicit observations.
+- **Explicit-content share:** Explicit tracks account for 13,273 of 27,700 valid chart observations (47.9%); the denominator includes only observations with a known explicit flag.
 - **Album type:** Single observations average rank 23.99; album observations 26.10; compilation observations 33.19. Compilation has only 42 observations, so its average is less stable.
 - **Duration and release size:** Duration and rank are weakly associated (r = −0.045). Release track count has a weak positive association with rank (r = 0.116) and a weak negative association with supplied popularity (r = −0.18). These results do not indicate cause and effect.
 
